@@ -55,3 +55,7 @@ class LlmOutputError(LlmError):
 
 class PatchError(SynthgenError):
     """A spec patch points at a path that does not exist or yields an invalid spec."""
+
+
+class ToolArgumentError(SynthgenError):
+    """A planner tool was called with a table, column or value it may not use."""

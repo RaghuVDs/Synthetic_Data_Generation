@@ -381,7 +381,7 @@ confirmed or corrected it moves to section 3.
   - [ ] T3.4 Intent analyst and semantic mapper (meaning gates, clarification,
     batching above 15 tables). Tests with stub fixtures, including invalid
     outputs that are re-prompted.
-  - [ ] T3.5 Planner tools: `agents/tools/registry.py`,
+  - [x] T3.5 Planner tools: `agents/tools/registry.py`,
     `agents/tools/profile_tools.py` (seven tools, argument validation,
     ~2,000-token cap, per-job cache, sensitive masks). Tests:
     `tests/unit/agents/tools/test_tools.py`.
