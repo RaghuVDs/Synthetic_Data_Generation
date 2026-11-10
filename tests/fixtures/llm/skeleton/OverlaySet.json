@@ -1,0 +1,31 @@
+[
+  {
+    "match": null,
+    "response": {
+      "scenarios": [
+        {
+          "name": "high_balance",
+          "category": "target_scenario",
+          "share": 0.05,
+          "unit": "entity",
+          "entity": "customers",
+          "labels": [],
+          "overrides": [
+            {
+              "table": "accounts",
+              "column": "balance",
+              "generator": {
+                "type": "empirical",
+                "quantiles": [
+                  50000.0,
+                  90000.0
+                ],
+                "decimals": 2
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

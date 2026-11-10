@@ -1,0 +1,10 @@
+[
+  {
+    "match": null,
+    "response": {
+      "patches": [],
+      "plan_change_required": false,
+      "explanation": "No change needed"
+    }
+  }
+]

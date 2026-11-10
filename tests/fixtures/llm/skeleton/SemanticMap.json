@@ -1,0 +1,77 @@
+[
+  {
+    "match": null,
+    "response": {
+      "tables": [
+        {
+          "table": "customers",
+          "grain": "entity",
+          "entity_key": "customer_id",
+          "event_time": null,
+          "label_column": null,
+          "columns": [
+            {
+              "name": "customer_id",
+              "role": "identifier",
+              "note": null
+            },
+            {
+              "name": "email",
+              "role": "sensitive_identifier",
+              "note": null
+            },
+            {
+              "name": "segment",
+              "role": "category",
+              "note": null
+            },
+            {
+              "name": "annual_income",
+              "role": "measure",
+              "note": null
+            }
+          ]
+        },
+        {
+          "table": "accounts",
+          "grain": "entity",
+          "entity_key": "account_id",
+          "event_time": "opened_date",
+          "label_column": null,
+          "columns": [
+            {
+              "name": "account_id",
+              "role": "identifier",
+              "note": null
+            },
+            {
+              "name": "customer_id",
+              "role": "foreign_key",
+              "note": null
+            },
+            {
+              "name": "balance",
+              "role": "measure",
+              "note": null
+            },
+            {
+              "name": "status",
+              "role": "status",
+              "note": null
+            }
+          ]
+        }
+      ],
+      "business_rules": [
+        {
+          "rule": "credit_limit is set only for credit accounts",
+          "columns": [
+            "account_type",
+            "credit_limit"
+          ],
+          "confidence": 0.9
+        }
+      ]
+    }
+  }
+]

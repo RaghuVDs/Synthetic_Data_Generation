@@ -1,0 +1,22 @@
+[
+  {
+    "match": null,
+    "response": {
+      "domain": "retail banking",
+      "objective": "Test balance threshold alerts on accounts",
+      "test_type": "rule_testing",
+      "entities_of_interest": [
+        "customers",
+        "accounts"
+      ],
+      "must_include": [
+        "customers with unusually high balances"
+      ],
+      "must_exclude": [],
+      "volume_hint": null,
+      "include_invalid": false,
+      "ambiguities": [],
+      "confidence": 0.9
+    }
+  }
+]

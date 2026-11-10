@@ -1,0 +1,11 @@
+[
+  {
+    "match": null,
+    "response": {
+      "text": "Generated {total_rows} rows across {table_count} tables, including {scenario_rows_customers_high_balance} high-balance customers. {checks_failed} of {checks_run} checks failed.",
+      "caveats": [
+        "Personal fields are pattern placeholders until semantic generators arrive."
+      ]
+    }
+  }
+]

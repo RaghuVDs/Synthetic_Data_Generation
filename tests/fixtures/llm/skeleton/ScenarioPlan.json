@@ -1,0 +1,46 @@
+[
+  {
+    "match": null,
+    "response": {
+      "scenarios": [
+        {
+          "name": "high_balance",
+          "category": "target_scenario",
+          "description": "Customers whose accounts hold balances far above the usual range",
+          "rationale": "The request asks for unusually high balances",
+          "share": 0.05,
+          "unit": "entity",
+          "tables": [
+            "customers",
+            "accounts"
+          ],
+          "primitives": [
+            "value_shift"
+          ],
+          "levers": [
+            {
+              "table": "accounts",
+              "column": "balance",
+              "primitive": "value_shift",
+              "change": "balance above the 99th percentile"
+            }
+          ],
+          "signature": [
+            {
+              "table": "accounts",
+              "column": "balance",
+              "metric": "value",
+              "operator": "ge",
+              "value": 50000.0,
+              "window_hours": null
+            }
+          ],
+          "template_ref": null
+        }
+      ],
+      "assumptions": [
+        "High means above the 99th percentile of balance"
+      ]
+    }
+  }
+]

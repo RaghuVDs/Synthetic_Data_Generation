@@ -277,14 +277,14 @@ confirmed or corrected it moves to section 3.
   - [x] T2.10 State and routing: `agents/state.py` (`JobState`),
     `agents/routing.py` (every row of SPEC 3.3, caps from settings). Tests:
     `tests/unit/agents/test_routing.py` (one case per table row, every cap).
-  - [ ] T2.11 Code nodes: `agents/nodes/{context_builder,profiler,
+  - [x] T2.11 Code nodes: `agents/nodes/{context_builder,profiler,
     baseline_compiler,spec_validator,dry_run,validator,full_generation,
     final_validation}.py`. Tests: `tests/unit/agents/nodes/test_code_nodes.py`.
-  - [ ] T2.12 LLM nodes and human gates (minimal prompts):
+  - [x] T2.12 LLM nodes and human gates (minimal prompts):
     `agents/nodes/{intent_analyst,semantic_mapper,scenario_planner,
     approval_gate,overlay_writer,repair_analyst,reporter}.py`, clarification
     and approval interrupts. Tests: `tests/unit/agents/nodes/test_llm_nodes.py`.
-  - [ ] T2.13 Graph and use cases: `agents/graph.py` (SQLite checkpointer,
+  - [x] T2.13 Graph and use cases: `agents/graph.py` (SQLite checkpointer,
     thread ID = job ID), `app.py` (`start_job`, `get_status`, `get_pending`,
     `answer_clarification`, `decide_plan`, `get_report`, `get_preview`,
     `profile_tables`). Tests: `tests/integration/test_graph_happy.py`,
