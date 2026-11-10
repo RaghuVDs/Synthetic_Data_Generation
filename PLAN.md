@@ -374,7 +374,7 @@ confirmed or corrected it moves to section 3.
     `storage/llm_call_log.py`. Tests: `test_structured.py` (bad JSON, schema
     failure, meaning failure, cap → `needs_review`, every call logged, no
     secret in log).
-  - [ ] T3.3 Prompt templates: `agents/prompts/{intent_analyst,semantic_mapper,
+  - [x] T3.3 Prompt templates: `agents/prompts/{intent_analyst,semantic_mapper,
     scenario_planner,overlay_writer,repair_analyst,reporter}.md`,
     `agents/prompts/loader.py` (version header, four parts, untrusted blocks).
     Tests: `tests/unit/agents/test_prompts.py`.

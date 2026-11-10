@@ -136,7 +136,7 @@ def test_clarification_round_trip(
 ) -> None:
     fixtures = fixture_set(
         tmp_path / "fx",
-        TestIntent=[(None, _blocking_intent()), ("ANSWER:", skeleton("TestIntent"))],
+        TestIntent=[(None, _blocking_intent()), ("ANSWER: p99", skeleton("TestIntent"))],
     )
     app, view = start(make_app, job_env(fixtures))
     assert view.job.status is JobStatus.AWAITING_CLARIFICATION
