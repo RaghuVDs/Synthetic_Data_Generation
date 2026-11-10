@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterator
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -18,8 +20,10 @@ def built(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, dict[str, int
 
 
 @pytest.fixture(scope="module")
-def conn(built: tuple[Path, dict[str, int]]) -> sqlite3.Connection:
-    return sqlite3.connect(built[0])
+def conn(built: tuple[Path, dict[str, int]]) -> Iterator[sqlite3.Connection]:
+    opened = sqlite3.connect(built[0])
+    yield opened
+    opened.close()
 
 
 def scalar(conn: sqlite3.Connection, sql: str) -> float:
@@ -88,6 +92,5 @@ def test_sku_prefix_follows_category(conn: sqlite3.Connection) -> None:
 def test_same_seed_same_data(built: tuple[Path, dict[str, int]], tmp_path: Path) -> None:
     again = tmp_path / "again.db"
     build_orders(again, SEED, SCALE)
-    first = sqlite3.connect(built[0])
-    second = sqlite3.connect(again)
-    assert list(first.iterdump()) == list(second.iterdump())
+    with closing(sqlite3.connect(built[0])) as first, closing(sqlite3.connect(again)) as second:
+        assert list(first.iterdump()) == list(second.iterdump())

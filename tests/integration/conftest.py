@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 import shutil
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
 
+from synthgen.app import Application, build_application
 from synthgen.seed.finance import build_finance
 from synthgen.seed.orders import build_orders
 
-from .helpers import FIXTURES
+from .helpers import FIXTURES, SETTINGS_FILE
 
 SEED = 3
 SCALE = 0.02
@@ -42,3 +43,18 @@ def job_env(seeded_dir: Path, tmp_path: Path) -> Callable[..., dict[str, str]]:
         }
 
     return make
+
+
+@pytest.fixture
+def make_app() -> Iterator[Callable[[dict[str, str]], Application]]:
+    """Build applications from an environment; every one is closed after the test."""
+    built: list[Application] = []
+
+    def make(env: dict[str, str]) -> Application:
+        app = build_application(env, SETTINGS_FILE, None)
+        built.append(app)
+        return app
+
+    yield make
+    for app in built:
+        app.close()

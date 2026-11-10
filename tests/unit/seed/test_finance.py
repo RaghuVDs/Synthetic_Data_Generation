@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -28,8 +29,10 @@ def built(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, dict[str, int
 
 
 @pytest.fixture(scope="module")
-def conn(built: tuple[Path, dict[str, int]]) -> sqlite3.Connection:
-    return sqlite3.connect(built[0])
+def conn(built: tuple[Path, dict[str, int]]) -> Iterator[sqlite3.Connection]:
+    opened = sqlite3.connect(built[0])
+    yield opened
+    opened.close()
 
 
 def scalar(conn: sqlite3.Connection, sql: str) -> float:

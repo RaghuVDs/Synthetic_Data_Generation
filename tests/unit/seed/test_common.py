@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 import numpy as np
@@ -84,4 +85,5 @@ def test_write_database_replaces_existing_file(tmp_path: Path) -> None:
         return {"t": c.insert(conn, "t", {"a": np.array([1, 2, 3])})}
 
     assert c.write_database(target, "CREATE TABLE t (a INTEGER);", fill) == {"t": 3}
-    assert sqlite3.connect(target).execute("SELECT SUM(a) FROM t").fetchone() == (6,)
+    with closing(sqlite3.connect(target)) as conn:
+        assert conn.execute("SELECT SUM(a) FROM t").fetchone() == (6,)

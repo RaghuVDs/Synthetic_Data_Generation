@@ -123,8 +123,7 @@ confirmed or corrected it moves to section 3.
 ## 3. Decisions
 
 - 2026-11-10: User accepted all proposed defaults for Q1–Q7 and A1–A17 as
-  written in section 2. They are binding decisions from this date. Git commit
-  name still to be confirmed by the user (Q1).
+  written in section 2. They are binding decisions from this date.
 - 2026-11-10: A12 revised during T0.4. Settings use a small explicit loader in
   `config.py` (PyYAML + Pydantic + `python-dotenv`) instead of
   `pydantic-settings`. The environment is passed in as a mapping, so tests
@@ -133,8 +132,8 @@ confirmed or corrected it moves to section 3.
 - 2026-11-10: Ruff excludes `*.md`; ruff 0.17 otherwise reformats Python code
   blocks inside `SPEC.md`.
 - 2026-11-10: `uv` 0.13.7 installed user-level in `~/.local/bin`.
-- 2026-11-10: User chose not to commit yet (Q1). Work stays uncommitted until
-  the user gives a commit name; no git identity is configured.
+- 2026-11-10: Q1 resolved. Commits use the repo-local identity
+  `raghunaras97 <raghunaras97@gmail.com>`; no remote is configured yet.
 - 2026-11-10: `make` 4.3 installed without sudo (user choice): Ubuntu package
   unpacked into `~/.local/make`, binary linked as `~/.local/bin/make`.
 - 2026-11-10 (M1): The `Connector` protocol in `domain/ports.py` adds
@@ -153,6 +152,45 @@ confirmed or corrected it moves to section 3.
 - 2026-11-10 (M1): Tooling: pydantic mypy plugin on; `pyarrow-stubs` for strict
   typing; ruff D401 off (docstrings state what and why); S608 allowed only in
   `connectors/sqlite.py`, where identifiers are validated and quoted.
+- 2026-11-10 (M2): Profiling modules are `inference`, `numeric`, `categorical`,
+  `temporal`, `profiler`, `card` and `cache` instead of the planned
+  `table_stats`/`column_stats` split. The connector keeps one read-only
+  connection with a 256 MiB page cache per instance; per-query connections
+  made profiling 4x slower on the Windows drive.
+- 2026-11-10 (M2): Profile versions are content hashes; `profile_cache` is keyed
+  by (source, table, version) so old versions stay loadable. Profiles sample
+  with `profiling.sample_seed`, independent of the generation seed.
+- 2026-11-10 (M2): The graph has the 15 work nodes plus a `finish` bookkeeping
+  node that records the terminal reason. `JobState` adds `approval_errors`,
+  `patch` and `route`. A wrapper around each node evaluates the pure router
+  from `routing.py` and stores the route; edges follow `state.route`.
+- 2026-11-10 (M2): Node errors: `LlmOutputError` ends the job `needs_review`,
+  any other `SynthgenError` ends it `failed`; any other exception propagates
+  as a crash and the job stays resumable from its last checkpoint.
+- 2026-11-10 (M2): Loop counters count per job and are never reset by a new
+  plan round. The node running the loop body increments; the router checks
+  `counter < cap`. Blocking questions left after the clarification cap end the
+  job `needs_review` (hard rule in `CLAUDE.md`).
+- 2026-11-10 (M2): Refines A9. Stub fixtures are `<SchemaName>.json` lists of
+  `{match, response}`; the stub returns the last entry whose `match` text is in
+  the prompt. Selection by content, not call count, keeps resumed jobs stable.
+- 2026-11-10 (M2): Approved shares and categories are binding: code copies
+  them from the approved plan onto the overlays. The overlay writer and repair
+  analyst see column names and types, cards, the plan and overlays, never the
+  baseline spec (it holds profile-derived values).
+- 2026-11-10 (M2): Child tables get stratified children-per-parent draws nudged
+  to an exact total (the target, else parents x mean, rounded). Dry runs size
+  children by the mean. Rows inherit their parent's scenario through the
+  driving foreign key.
+- 2026-11-10 (M2): Known limitation until M5: sensitive columns are generated
+  from character masks, so names are random letters and a sensitive date such
+  as `date_of_birth` is text that is not a valid date.
+- 2026-11-10 (M2): Use cases add `create_job` and `run_job` so the CLI can
+  print the job ID before work starts; `resume_job` runs a job from its start
+  or its last checkpoint. `Application` is a context manager that closes the
+  checkpoint connection.
+- 2026-11-10 (M2): T2.11 and T2.12 share one commit (their tests import both).
+  Test folders are packages so module names stay unique for mypy.
 
 ## 4. Milestones
 
@@ -290,7 +328,7 @@ confirmed or corrected it moves to section 3.
     `profile_tables`). Tests: `tests/integration/test_graph_happy.py`,
     `test_graph_failures.py` (cap → `needs_review`, reject → `cancelled`,
     integrity failure → `failed`, clarification round trip).
-  - [ ] T2.14 CLI job commands: `cli/commands.py` (`profile`, `run`, `resume`,
+  - [x] T2.14 CLI job commands: `cli/commands.py` (`profile`, `run`, `resume`,
     `status`, `report`, `preview`), `cli/prompts.py` (approval and question
     prompts), coverage gate in `Makefile` (A11). Tests:
     `tests/integration/test_resume.py` (forced stop mid-graph, resume gives the
@@ -481,4 +519,8 @@ confirmed or corrected it moves to section 3.
 - 2026-11-10 M1 Foundations done: `make check` passes (228 tests); `seed`
   builds finance.db (200,000 transactions, 0.5% fraud) and orders.db (200,030
   order lines) in ~20 s; `tables` lists both with relationships, including
-  the PRAGMA-derived `order_items.product_id`. Not committed (user choice).
+  the PRAGMA-derived `order_items.product_id`. Committed per task.
+- 2026-11-10 M2 Walking skeleton done: `make check` passes (457 tests, no
+  warnings, 98% coverage on domain/spec/engine/validation). A stub run on
+  finance customers,accounts completes; a job killed with SIGKILL during final
+  validation completed with `resume` (1,249,975 rows, 0 of 43 checks failed).

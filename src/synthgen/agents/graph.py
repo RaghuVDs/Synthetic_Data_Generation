@@ -128,7 +128,12 @@ class JobRunner:
 
     def __init__(self, deps: NodeDeps, checkpointer: SqliteSaver) -> None:
         """Compile the graph once for this process."""
+        self._checkpointer = checkpointer
         self._graph = build_graph(deps, checkpointer)
+
+    def close(self) -> None:
+        """Close the checkpoint database connection."""
+        self._checkpointer.conn.close()
 
     @staticmethod
     def _config(job_id: str) -> Any:  # Any: LangGraph's RunnableConfig mapping

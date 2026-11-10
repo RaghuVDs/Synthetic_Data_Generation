@@ -5,12 +5,13 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from synthgen.app import build_application
+from synthgen.app import Application
 from synthgen.domain.job import ArtifactKind, JobStatus, UserRequest
 
-from .helpers import SETTINGS_FILE, fixture_set, skeleton
+from .helpers import fixture_set, skeleton
 
 EnvFactory = Callable[..., dict[str, str]]
+AppFactory = Callable[[dict[str, str]], Application]
 REQUEST = UserRequest(
     source="finance", tables=("customers", "accounts"), text="high balances", auto_approve=True
 )
@@ -27,33 +28,41 @@ def _overlay(column: str, generator: dict[str, Any]) -> dict[str, Any]:
 BROKEN_FK = _overlay("customer_id", {"type": "constant", "value": 999_999})
 
 
-def _run(env: dict[str, str]) -> tuple[str, JobStatus, str | None]:
-    app = build_application(env, SETTINGS_FILE, None)
+def _run(make_app: AppFactory, env: dict[str, str]) -> tuple[str, JobStatus, str | None]:
+    app = make_app(env)
     view = app.start_job(REQUEST)
     return view.job.job_id, view.job.status, view.job.error
 
 
-def test_overlay_errors_stop_at_the_repair_cap(job_env: EnvFactory, tmp_path: Path) -> None:
+def test_overlay_errors_stop_at_the_repair_cap(
+    make_app: AppFactory, job_env: EnvFactory, tmp_path: Path
+) -> None:
     unknown = _overlay("no_such_column", {"type": "constant", "value": 1})
-    _, status, error = _run(job_env(fixture_set(tmp_path / "fx", OverlaySet=[(None, unknown)])))
+    _, status, error = _run(
+        make_app, job_env(fixture_set(tmp_path / "fx", OverlaySet=[(None, unknown)]))
+    )
     assert status is JobStatus.NEEDS_REVIEW
     assert error == "spec still invalid after 3 repairs"
 
 
-def test_invalid_llm_output_needs_review(job_env: EnvFactory, tmp_path: Path) -> None:
+def test_invalid_llm_output_needs_review(
+    make_app: AppFactory, job_env: EnvFactory, tmp_path: Path
+) -> None:
     broken = fixture_set(tmp_path / "fx", SemanticMap=[(None, {"tables": "not a list"})])
-    _, status, error = _run(job_env(broken))
+    _, status, error = _run(make_app, job_env(broken))
     assert status is JobStatus.NEEDS_REVIEW
     assert error is not None and "SemanticMap" in error
 
 
-def test_baseline_error_fails_the_job(job_env: EnvFactory) -> None:
-    _, status, error = _run(job_env(SYNTHGEN_GENERATION__MAX_ROWS_PER_TABLE="10"))
+def test_baseline_error_fails_the_job(make_app: AppFactory, job_env: EnvFactory) -> None:
+    _, status, error = _run(make_app, job_env(SYNTHGEN_GENERATION__MAX_ROWS_PER_TABLE="10"))
     assert status is JobStatus.FAILED
     assert error is not None and error.startswith("baseline spec invalid")
 
 
-def test_dry_run_failure_is_repaired(job_env: EnvFactory, tmp_path: Path) -> None:
+def test_dry_run_failure_is_repaired(
+    make_app: AppFactory, job_env: EnvFactory, tmp_path: Path
+) -> None:
     patch = {
         "patches": [
             {
@@ -75,21 +84,27 @@ def test_dry_run_failure_is_repaired(job_env: EnvFactory, tmp_path: Path) -> Non
     env = job_env(
         fixture_set(tmp_path / "fx", OverlaySet=[(None, BROKEN_FK)], SpecPatch=[(None, patch)])
     )
-    job_id, status, error = _run(env)
+    job_id, status, error = _run(make_app, env)
     assert status is JobStatus.COMPLETED, error
-    app = build_application(env, SETTINGS_FILE, None)
+    app = make_app(env)
     assert len(app._artifacts.versions(job_id, ArtifactKind.SPEC)) >= 2
     dry_run_reports = app._artifacts.versions(job_id, ArtifactKind.DRY_RUN_REPORT)
     assert len(dry_run_reports) == 2
 
 
-def test_unrepaired_dry_run_stops_at_the_cap(job_env: EnvFactory, tmp_path: Path) -> None:
-    _, status, error = _run(job_env(fixture_set(tmp_path / "fx", OverlaySet=[(None, BROKEN_FK)])))
+def test_unrepaired_dry_run_stops_at_the_cap(
+    make_app: AppFactory, job_env: EnvFactory, tmp_path: Path
+) -> None:
+    _, status, error = _run(
+        make_app, job_env(fixture_set(tmp_path / "fx", OverlaySet=[(None, BROKEN_FK)]))
+    )
     assert status is JobStatus.NEEDS_REVIEW
     assert error == "dry run still failing after 3 repairs"
 
 
-def test_plan_change_request_returns_to_approval(job_env: EnvFactory, tmp_path: Path) -> None:
+def test_plan_change_request_returns_to_approval(
+    make_app: AppFactory, job_env: EnvFactory, tmp_path: Path
+) -> None:
     replan = {
         "patches": [],
         "plan_change_required": True,
@@ -98,8 +113,8 @@ def test_plan_change_request_returns_to_approval(job_env: EnvFactory, tmp_path: 
     env = job_env(
         fixture_set(tmp_path / "fx", OverlaySet=[(None, BROKEN_FK)], SpecPatch=[(None, replan)])
     )
-    job_id, status, error = _run(env)
+    job_id, status, error = _run(make_app, env)
     assert status is JobStatus.NEEDS_REVIEW
     assert error == "dry run still failing after 3 repairs"
-    approvals = build_application(env, SETTINGS_FILE, None)._jobs.approvals(job_id)
+    approvals = make_app(env)._jobs.approvals(job_id)
     assert len(approvals) == 4  # the first approval, then one per plan-change request

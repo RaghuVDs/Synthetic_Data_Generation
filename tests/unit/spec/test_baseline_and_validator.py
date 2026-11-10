@@ -65,7 +65,9 @@ def baseline(
         row_targets={"customers": 50},
         seed=9,
     )
-    return compile_baseline(inputs, generation_settings)
+    spec = compile_baseline(inputs, generation_settings)
+    connector.close()
+    return spec
 
 
 def _gen(spec: GenerationSpec, table: str, column: str) -> dict[str, Any]:

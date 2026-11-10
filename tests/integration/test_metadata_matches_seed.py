@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -15,7 +16,8 @@ METADATA_DIR = Path(__file__).resolve().parents[2] / "config" / "metadata"
 
 def provider(seeded_dir: Path, source: str) -> YamlMetadataProvider:
     doc = load_source_doc(METADATA_DIR / f"{source}.yaml")
-    return YamlMetadataProvider(doc, SqliteConnector(seeded_dir / f"{source}.db"))
+    with closing(SqliteConnector(seeded_dir / f"{source}.db")) as connector:
+        return YamlMetadataProvider(doc, connector)
 
 
 @pytest.mark.parametrize("source", SOURCES)

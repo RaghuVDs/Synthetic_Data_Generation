@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import sqlite3
+from collections.abc import Iterator
 from pathlib import Path
 
 import pyarrow as pa
@@ -56,8 +57,10 @@ def db_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture
-def connector(db_path: Path) -> SqliteConnector:
-    return SqliteConnector(db_path)
+def connector(db_path: Path) -> Iterator[SqliteConnector]:
+    opened = SqliteConnector(db_path)
+    yield opened
+    opened.close()
 
 
 def test_missing_file_is_rejected(tmp_path: Path) -> None:

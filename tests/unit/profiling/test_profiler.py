@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -15,22 +16,32 @@ from synthgen.profiling.profiler import profile_table, schema_hash
 
 
 @pytest.fixture(scope="module")
-def provider(shop_db: Path) -> YamlMetadataProvider:
+def connector(shop_db: Path) -> Iterator[SqliteConnector]:
+    opened = SqliteConnector(shop_db)
+    yield opened
+    opened.close()
+
+
+@pytest.fixture(scope="module")
+def provider(connector: SqliteConnector) -> YamlMetadataProvider:
     doc = SourceDoc.model_validate(
         {
             "source": "shop",
             "tables": {"customers": {"columns": {"score": {"sensitivity": "internal"}}}},
         }
     )
-    return YamlMetadataProvider(doc, SqliteConnector(shop_db))
+    return YamlMetadataProvider(doc, connector)
 
 
 def _profile(
-    shop_db: Path, provider: YamlMetadataProvider, table: str, settings: ProfilingSettings
+    connector: SqliteConnector,
+    provider: YamlMetadataProvider,
+    table: str,
+    settings: ProfilingSettings,
 ) -> TableProfile:
     return profile_table(
         "shop",
-        SqliteConnector(shop_db),
+        connector,
         provider.table(table),
         provider.relationships(),
         settings=settings,
@@ -39,9 +50,11 @@ def _profile(
 
 
 def test_customer_columns(
-    shop_db: Path, provider: YamlMetadataProvider, profiling_settings: ProfilingSettings
+    connector: SqliteConnector,
+    provider: YamlMetadataProvider,
+    profiling_settings: ProfilingSettings,
 ) -> None:
-    profile = _profile(shop_db, provider, "customers", profiling_settings)
+    profile = _profile(connector, provider, "customers", profiling_settings)
     assert profile.row_count.value == 300
     assert profile.row_count.source is StatSource.SQL
     assert profile.primary_key_unique is not None and profile.primary_key_unique.value
@@ -62,9 +75,11 @@ def test_customer_columns(
 
 
 def test_order_columns_and_children(
-    shop_db: Path, provider: YamlMetadataProvider, profiling_settings: ProfilingSettings
+    connector: SqliteConnector,
+    provider: YamlMetadataProvider,
+    profiling_settings: ProfilingSettings,
 ) -> None:
-    profile = _profile(shop_db, provider, "orders", profiling_settings)
+    profile = _profile(connector, provider, "orders", profiling_settings)
     columns = {c.name: c for c in profile.columns}
     assert columns["paid"].inferred_type is InferredType.BOOLEAN
     assert columns["placed"].inferred_type is InferredType.DATETIME
@@ -82,9 +97,11 @@ def test_schema_hash_tracks_columns(provider: YamlMetadataProvider) -> None:
 
 
 def test_card_hides_sensitive_values(
-    shop_db: Path, provider: YamlMetadataProvider, profiling_settings: ProfilingSettings
+    connector: SqliteConnector,
+    provider: YamlMetadataProvider,
+    profiling_settings: ProfilingSettings,
 ) -> None:
-    profile = _profile(shop_db, provider, "customers", profiling_settings)
+    profile = _profile(connector, provider, "customers", profiling_settings)
     card = build_card(
         profile, provider.table("customers"), provider.relationships(), profiling_settings
     )
@@ -103,9 +120,11 @@ def test_card_hides_sensitive_values(
 
 
 def test_card_folds_rare_internal_values(
-    shop_db: Path, provider: YamlMetadataProvider, profiling_settings: ProfilingSettings
+    connector: SqliteConnector,
+    provider: YamlMetadataProvider,
+    profiling_settings: ProfilingSettings,
 ) -> None:
-    profile = _profile(shop_db, provider, "customers", profiling_settings)
+    profile = _profile(connector, provider, "customers", profiling_settings)
     tier = next(c for c in profile.columns if c.name == "tier")
     assert tier.categorical is not None
     internal = tier.model_copy(update={"sensitivity": Sensitivity.INTERNAL})

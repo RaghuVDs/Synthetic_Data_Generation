@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +14,7 @@ from synthgen.metadata.provider import SourceDoc, YamlMetadataProvider, load_sou
 
 
 @pytest.fixture(scope="module")
-def connector(tmp_path_factory: pytest.TempPathFactory) -> SqliteConnector:
+def connector(tmp_path_factory: pytest.TempPathFactory) -> Iterator[SqliteConnector]:
     path = tmp_path_factory.mktemp("meta") / "shop.db"
     conn = sqlite3.connect(path)
     conn.executescript(
@@ -29,7 +30,9 @@ def connector(tmp_path_factory: pytest.TempPathFactory) -> SqliteConnector:
         """
     )
     conn.close()
-    return SqliteConnector(path)
+    opened = SqliteConnector(path)
+    yield opened
+    opened.close()
 
 
 def _doc(**overrides: Any) -> SourceDoc:

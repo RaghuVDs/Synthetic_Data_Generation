@@ -73,6 +73,20 @@ class Application:
         """The settings this application was built with."""
         return self._settings
 
+    def close(self) -> None:
+        """Release the checkpoint connection if the graph was used."""
+        runner = self.__dict__.get("_runner")
+        if isinstance(runner, JobRunner):
+            runner.close()
+
+    def __enter__(self) -> Application:
+        """Use as `with build_application(...) as app:` so resources are released."""
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        """Close on leaving the block."""
+        self.close()
+
     @cached_property
     def _db(self) -> StateDatabase:
         return StateDatabase(self._settings.paths.state_db_path)
@@ -150,10 +164,22 @@ class Application:
 
     def start_job(self, request: UserRequest) -> JobView:
         """Create a job and run it until it pauses or ends."""
+        return self.run_job(self.create_job(request).job_id)
+
+    def create_job(self, request: UserRequest) -> JobRecord:
+        """Register a job for an existing source without running it."""
         self._require_source(request.source)
-        job_id = uuid.uuid4().hex[:JOB_ID_CHARS]
-        self._jobs.create(job_id, request)
-        self._runner.start(job_id, request)
+        return self._jobs.create(uuid.uuid4().hex[:JOB_ID_CHARS], request)
+
+    def run_job(self, job_id: str) -> JobView:
+        """Run a job from its start, or from its last checkpoint after an interruption."""
+        job = self.get_status(job_id)
+        if job.status.is_terminal or self.get_pending(job_id) is not None:
+            return self.view(job_id)
+        if self._runner.has_run(job_id):
+            self._runner.resume(job_id)
+        else:
+            self._runner.start(job_id, job.request)
         return self.view(job_id)
 
     def view(self, job_id: str) -> JobView:
@@ -183,14 +209,8 @@ class Application:
         return self.view(job_id)
 
     def resume_job(self, job_id: str) -> JobView:
-        """Continue an interrupted job from its last checkpoint; paused jobs need an answer."""
-        job = self.get_status(job_id)
-        if job.status.is_terminal or self.get_pending(job_id) is not None:
-            return self.view(job_id)
-        if not self._runner.has_run(job_id):
-            raise NotFoundError(f"job {job_id} has no checkpoint to resume from")
-        self._runner.resume(job_id)
-        return self.view(job_id)
+        """Continue a paused or interrupted job; a paused job comes back with its question."""
+        return self.run_job(job_id)
 
     def get_report(self, job_id: str) -> JobReport:
         """Final validation report, summary and manifest, as far as the job got."""

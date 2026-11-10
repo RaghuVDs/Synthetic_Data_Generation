@@ -2,7 +2,7 @@
 
 import typer
 
-from synthgen.cli import commands
+from synthgen.cli import commands, jobs
 
 app = typer.Typer(
     name="synthgen",
@@ -12,6 +12,12 @@ app = typer.Typer(
 )
 app.command("seed")(commands.seed)
 app.command("tables")(commands.tables)
+app.command("profile")(commands.profile)
+app.command("run")(jobs.run)
+app.command("resume")(jobs.resume)
+app.command("status")(jobs.status)
+app.command("report")(jobs.report)
+app.command("preview")(jobs.preview)
 
 
 @app.callback()
