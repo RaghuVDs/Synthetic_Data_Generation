@@ -43,3 +43,11 @@ class SpecCompilationError(SynthgenError):
 
 class EngineError(SynthgenError):
     """The engine cannot generate data that satisfies the spec."""
+
+
+class LlmError(SynthgenError):
+    """The LLM endpoint failed or is misconfigured."""
+
+
+class LlmOutputError(LlmError):
+    """The LLM's answer failed its gates after every allowed re-prompt; the job needs review."""
