@@ -10,6 +10,7 @@ from typing import Any, TypedDict
 from pydantic import BaseModel
 
 from synthgen.domain.base import StrictModel
+from synthgen.domain.feasibility import FeasibilityResult
 from synthgen.domain.intent import TestIntent
 from synthgen.domain.job import Approval, JobStatus, LoopCounters, QuestionAnswer, UserRequest
 from synthgen.domain.metadata import TableSet
@@ -29,7 +30,7 @@ class Route(StrictModel):
 
 
 class JobState(TypedDict):
-    """The SPEC 3.2 fields plus `approval_errors`, `patch` and `route` (PLAN decisions)."""
+    """The SPEC 3.2 fields plus `feasibility`, `approval_errors`, `patch` and `route`."""
 
     job_id: str
     request: UserRequest
@@ -39,6 +40,7 @@ class JobState(TypedDict):
     profile_refs: dict[str, str]
     semantic_map: SemanticMap | None
     plan: ScenarioPlan | None
+    feasibility: list[FeasibilityResult]
     approval: Approval | None
     approval_errors: list[str]
     overlays: list[ScenarioSpec]
@@ -64,6 +66,7 @@ def initial_state(job_id: str, request: UserRequest) -> JobState:
         profile_refs={},
         semantic_map=None,
         plan=None,
+        feasibility=[],
         approval=None,
         approval_errors=[],
         overlays=[],

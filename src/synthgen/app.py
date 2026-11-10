@@ -18,6 +18,7 @@ from synthgen.agents.llm.openai_compatible import OpenAiCompatibleClient
 from synthgen.agents.llm.structured import StructuredLlm
 from synthgen.agents.llm.stub import StubClient
 from synthgen.agents.nodes.deps import NodeDeps, Source
+from synthgen.agents.tools.cache import ToolResultCache
 from synthgen.config import Settings, load_settings, read_environment
 from synthgen.connectors.sqlite import SqliteConnector
 from synthgen.domain.base import StrictModel
@@ -32,6 +33,7 @@ from synthgen.metadata.provider import SourceDoc, YamlMetadataProvider, load_sou
 from synthgen.profiling.cache import ProfileRequest, profile_version
 from synthgen.profiling.card import LlmSafeProfile, build_card
 from synthgen.profiling.models import TableProfile
+from synthgen.scenarios.templates.loader import BUILT_IN, TemplateLibrary
 from synthgen.seed.finance import build_finance
 from synthgen.seed.orders import build_orders
 from synthgen.storage.artifact_store import ArtifactStore
@@ -130,6 +132,8 @@ class Application:
             profiles=self._profiles,
             open_source=self._open_source,
             clock=self._clock,
+            templates=TemplateLibrary(self._settings.paths.templates_dir or BUILT_IN),
+            tool_cache=ToolResultCache(),
         )
         return JobRunner(deps, open_checkpointer(self._settings.paths.checkpoints_db_path))
 

@@ -8,8 +8,9 @@ from typing import Any
 import pytest
 
 from synthgen.agents.nodes.deps import Source
+from synthgen.agents.tools.cache import ToolResultCache
 from synthgen.agents.tools.context import ToolContext
-from synthgen.agents.tools.registry import TRUNCATED, ToolRegistry, ToolResultCache
+from synthgen.agents.tools.registry import TRUNCATED, ToolRegistry
 from synthgen.config import ProfilingSettings
 from synthgen.connectors.sqlite import SqliteConnector
 from synthgen.metadata.provider import SourceDoc, YamlMetadataProvider

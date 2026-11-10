@@ -389,7 +389,7 @@ confirmed or corrected it moves to section 3.
     spec constructs), `scenarios/profile_derived.py`,
     `scenarios/feasibility.py`, `scenarios/templates/loader.py`,
     `scenarios/templates/card_fraud/*.yaml`. Tests: `tests/unit/scenarios/`.
-  - [ ] T3.7 Scenario planner node: tool turns then one structured call, tool
+  - [x] T3.7 Scenario planner node: tool turns then one structured call, tool
     cap (Q5), meaning gate, feasibility attached. Tests: stub tool-call flow.
   - [ ] T3.8 Overlay writer, repair analyst, reporter: `spec/patch.py` (JSON
     pointer apply, allow-list, `plan_change_required` → approval), reporter

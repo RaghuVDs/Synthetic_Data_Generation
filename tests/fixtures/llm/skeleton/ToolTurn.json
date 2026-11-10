@@ -1,0 +1,22 @@
+[
+  {
+    "match": null,
+    "response": {
+      "tool_calls": [
+        {
+          "id": "call_1",
+          "name": "get_column_profile",
+          "arguments": "{\"table\": \"accounts\", \"column\": \"balance\"}"
+        }
+      ],
+      "content": null
+    }
+  },
+  {
+    "match": "\"histogram\": {",
+    "response": {
+      "tool_calls": [],
+      "content": "Balances are log-normal; the 99th percentile is well above typical values."
+    }
+  }
+]

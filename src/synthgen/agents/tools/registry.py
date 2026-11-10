@@ -13,6 +13,7 @@ from synthgen.agents.llm.client import ToolDef
 from synthgen.agents.llm.schema import strict_schema
 from synthgen.agents.tools import profile_tools as pt
 from synthgen.agents.tools import stats_tools as st
+from synthgen.agents.tools.cache import ToolResultCache
 from synthgen.agents.tools.context import ToolContext
 from synthgen.domain.base import StrictModel
 from synthgen.domain.errors import ConnectorError, MetadataError, ToolArgumentError
@@ -97,22 +98,6 @@ TOOLS = (
         "get_scenario_template", "Fetch one scenario template in full.", TemplateArgs, _template
     ),
 )
-
-
-class ToolResultCache:
-    """Tool results per job, so repeated calls in later plan rounds cost nothing."""
-
-    def __init__(self) -> None:
-        """Start empty."""
-        self._results: dict[tuple[str, str, str], str] = {}
-
-    def get(self, key: tuple[str, str, str]) -> str | None:
-        """A cached result, or None."""
-        return self._results.get(key)
-
-    def put(self, key: tuple[str, str, str], result: str) -> None:
-        """Remember a result."""
-        self._results[key] = result
 
 
 class ToolRegistry:

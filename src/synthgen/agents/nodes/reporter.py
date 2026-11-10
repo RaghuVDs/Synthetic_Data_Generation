@@ -8,6 +8,7 @@ from synthgen.agents.meaning import PLACEHOLDER, check_summary
 from synthgen.agents.nodes.common import ask
 from synthgen.agents.nodes.deps import NodeDeps, StateUpdate
 from synthgen.agents.state import JobState
+from synthgen.domain.feasibility import FeasibilityStatus
 from synthgen.domain.job import ArtifactKind
 from synthgen.domain.summary import Summary
 from synthgen.engine.writer import Manifest, read_manifest
@@ -51,8 +52,13 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
         Summary,
         meaning=lambda value: check_summary(value, set(values)),
     )
+    skipped = [
+        f"Scenario {f.scenario} was not generated: {f.reason}"
+        for f in state["feasibility"]
+        if f.status is FeasibilityStatus.NOT_EXPRESSIBLE
+    ]
     summary = Summary(
-        text=fill(draft.text, values), caveats=[fill(c, values) for c in draft.caveats]
+        text=fill(draft.text, values), caveats=[*(fill(c, values) for c in draft.caveats), *skipped]
     )
     deps.artifacts.put(state["job_id"], ArtifactKind.SUMMARY, summary)
     return {}

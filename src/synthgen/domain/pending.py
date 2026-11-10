@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from synthgen.domain.base import StrictModel
+from synthgen.domain.feasibility import FeasibilityResult
 from synthgen.domain.intent import Ambiguity
 from synthgen.domain.plan import ScenarioPlan
 
@@ -23,6 +24,7 @@ class PendingApproval(StrictModel):
 
     kind: Literal["approval"]
     plan: ScenarioPlan
+    feasibility: list[FeasibilityResult]
     plan_version: int
     errors: list[str]
     explanation: str | None

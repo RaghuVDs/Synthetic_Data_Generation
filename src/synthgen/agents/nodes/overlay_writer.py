@@ -9,6 +9,7 @@ from synthgen.agents.nodes.common import as_json, ask, cards, job_columns
 from synthgen.agents.nodes.deps import NodeDeps, StateUpdate
 from synthgen.agents.state import JobState
 from synthgen.domain.errors import SynthgenError
+from synthgen.domain.feasibility import FeasibilityStatus
 from synthgen.domain.job import ArtifactKind
 from synthgen.domain.plan import ScenarioPlan
 from synthgen.spec.models import GenerationSpec, OverlaySet, ScenarioSpec
@@ -37,6 +38,7 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
     counters = state["counters"]
     if state["spec_errors"]:
         counters = counters.model_copy(update={"spec_repair": counters.spec_repair + 1})
+    plan = generable(plan, state)
     expected = [s.name for s in plan.scenarios]
     columns = job_columns(state, deps)
     overlays = ask(
@@ -53,6 +55,16 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
         meaning=lambda value: check_overlays(value, expected, columns),
     )
     return {"overlays": approved_shares(overlays, plan), "spec_ref": None, "counters": counters}
+
+
+def generable(plan: ScenarioPlan, state: JobState) -> ScenarioPlan:
+    """The approved plan without scenarios the feasibility check found not expressible."""
+    blocked = {
+        f.scenario for f in state["feasibility"] if f.status is FeasibilityStatus.NOT_EXPRESSIBLE
+    }
+    return plan.model_copy(
+        update={"scenarios": [s for s in plan.scenarios if s.name not in blocked]}
+    )
 
 
 def approved_shares(overlays: OverlaySet, plan: ScenarioPlan) -> list[ScenarioSpec]:

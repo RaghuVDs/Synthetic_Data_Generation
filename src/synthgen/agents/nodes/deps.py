@@ -12,9 +12,11 @@ from typing import Any, Protocol, TypeVar
 from pydantic import BaseModel
 
 from synthgen.agents.llm.structured import StructuredLlm
+from synthgen.agents.tools.cache import ToolResultCache
 from synthgen.config import Settings
 from synthgen.domain.job import Approval, ArtifactKind, JobRecord, JobStatus
 from synthgen.domain.ports import Connector, MetadataProvider
+from synthgen.scenarios.templates.loader import TemplateLibrary
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 StateUpdate = dict[str, Any]  # Any: a partial JobState; LangGraph merges it into the state
@@ -99,6 +101,8 @@ class NodeDeps:
     profiles: Profiles
     open_source: Callable[[str], AbstractContextManager[Source]]
     clock: Callable[[], datetime]
+    templates: TemplateLibrary
+    tool_cache: ToolResultCache
 
     def job_dir(self, job_id: str) -> Path:
         """Output folder of one job."""

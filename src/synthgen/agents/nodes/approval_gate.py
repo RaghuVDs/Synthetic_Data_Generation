@@ -48,6 +48,7 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
         pending = PendingApproval(
             kind="approval",
             plan=plan,
+            feasibility=state["feasibility"],
             plan_version=version,
             errors=state["approval_errors"],
             explanation=patch.explanation if patch and patch.plan_change_required else None,
@@ -66,5 +67,7 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
         except (ValueError, ValidationError) as exc:
             return {**update, "approval_errors": [str(exc)]}
         deps.artifacts.put(job_id, ArtifactKind.PLAN, edited)
+        kept = {s.name for s in edited.scenarios}
         update["plan"] = edited
+        update["feasibility"] = [f for f in state["feasibility"] if f.scenario in kept]
     return update

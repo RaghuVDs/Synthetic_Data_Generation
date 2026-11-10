@@ -111,6 +111,13 @@ def render_plan(console: Console, pending: PendingApproval) -> None:
         )
     console.print(table)
     console.print(f"typical rows: {1 - pending.plan.total_share:.1%}")
+    for check in pending.feasibility:
+        if check.reason:
+            hint = f" (try: {check.alternative})" if check.alternative else ""
+            console.print(
+                f"[yellow]{check.scenario} is {check.status}:[/] {check.reason}{hint}",
+                highlight=False,
+            )
     for assumption in pending.plan.assumptions:
         console.print(f"assumption: {assumption}", highlight=False)
     if pending.explanation:
