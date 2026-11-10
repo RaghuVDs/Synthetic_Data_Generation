@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 SCENARIO_COLUMN = "_scenario"
 CATEGORY_COLUMN = "_category"
 MAX_UNIQUE_REDRAWS = 20
-_ARROW = {
+ARROW_TYPES = {
     ColumnType.INTEGER: pa.int64(),
     ColumnType.FLOAT: pa.float64(),
     ColumnType.BOOLEAN: pa.int64(),
@@ -133,7 +133,7 @@ def _generate_table(
     _apply_overlays(
         spec.scenarios, table.name, values, assigned, lambda gen, k: generate(gen, k, rng, ctx)
     )
-    columns = [pa.array(_cast(values[c.name], c), type=_ARROW[c.type]) for c in table.columns]
+    columns = [pa.array(_cast(values[c.name], c), type=ARROW_TYPES[c.type]) for c in table.columns]
     columns += [
         pa.array(assigned, type=pa.string()),
         pa.array(categories(assigned, spec.scenarios), type=pa.string()),

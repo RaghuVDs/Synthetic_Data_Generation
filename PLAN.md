@@ -268,7 +268,7 @@ confirmed or corrected it moves to section 3.
     (exact allocation, `_scenario`, `_category`, label columns, overlays),
     `engine/writer.py` (PyArrow zstd, manifest), `engine/runner.py`. Tests:
     `tests/unit/engine/test_runner.py` (byte-identical rerun, FKs resolve).
-  - [ ] T2.8 Basic validator: `validation/integrity.py` (PK unique, FK
+  - [x] T2.8 Basic validator: `validation/integrity.py` (PK unique, FK
     resolves, not-null, types), `validation/fidelity.py` (row count),
     `validation/report.py`. Tests with injected failures.
   - [ ] T2.9 LLM protocol and stub: `agents/llm/client.py` (`LlmClient`,
