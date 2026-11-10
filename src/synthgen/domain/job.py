@@ -138,3 +138,14 @@ class Approval(StrictModel):
     def has_feedback(self) -> bool:
         """True when a rejection carries text the planner can act on."""
         return bool(self.feedback and self.feedback.strip())
+
+
+class JobRecord(StrictModel):
+    """A job as stored: its request, current status and any terminal error."""
+
+    job_id: str
+    request: UserRequest
+    status: JobStatus
+    error: str | None
+    created_at: datetime
+    updated_at: datetime
