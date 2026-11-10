@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from typing import TypeVar
 
 from pydantic import BaseModel
 
+from synthgen.agents.llm.structured import CallContext, no_meaning_errors
 from synthgen.agents.nodes.deps import NodeDeps
+from synthgen.agents.prompts.loader import render
 from synthgen.agents.state import JobState
 from synthgen.domain.errors import SynthgenError
 from synthgen.domain.job import ArtifactKind
@@ -16,6 +19,8 @@ from synthgen.profiling.models import TableProfile
 from synthgen.spec.models import GenerationSpec
 
 SPEC_REF_PREFIX = "spec/"
+PLANNER_ROLE = "scenario_planner"
+ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 def spec_ref(version: int) -> str:
@@ -54,6 +59,32 @@ def cards(state: JobState, deps: NodeDeps) -> list[LlmSafeProfile]:
             )
             for name in table_set.order
         ]
+
+
+def job_columns(state: JobState, deps: NodeDeps) -> dict[str, list[str]]:
+    """Column names of every table in the job, for meaning checks."""
+    table_set = state["table_set"]
+    if table_set is None:
+        raise SynthgenError("columns requested before the table set is known")
+    with deps.open_source(state["request"].source) as source:
+        return {t: [c.name for c in source.metadata.table(t).columns] for t in table_set.order}
+
+
+def ask(  # noqa: PLR0913 - the full description of one structured call
+    state: JobState,
+    deps: NodeDeps,
+    role: str,
+    blocks: dict[str, str],
+    schema: type[ModelT],
+    *,
+    meaning: Callable[[ModelT], list[str]] = no_meaning_errors,
+) -> ModelT:
+    """Render the role's prompt and get an answer that passed all three gates."""
+    version, messages = render(role, blocks)
+    llm = deps.settings.llm
+    temperature = llm.planner_temperature if role == PLANNER_ROLE else llm.temperature
+    ctx = CallContext(job_id=state["job_id"], node=role, prompt_version=version)
+    return deps.llm.ask(ctx, messages, schema, temperature, meaning)
 
 
 def as_json(value: BaseModel | Sequence[BaseModel]) -> str:

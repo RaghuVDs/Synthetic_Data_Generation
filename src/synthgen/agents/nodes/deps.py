@@ -11,7 +11,7 @@ from typing import Any, Protocol, TypeVar
 
 from pydantic import BaseModel
 
-from synthgen.agents.llm.client import LlmClient
+from synthgen.agents.llm.structured import StructuredLlm
 from synthgen.config import Settings
 from synthgen.domain.job import Approval, ArtifactKind, JobRecord, JobStatus
 from synthgen.domain.ports import Connector, MetadataProvider
@@ -93,7 +93,7 @@ class NodeDeps:
     """Everything a node may use. Built once per run in app.py."""
 
     settings: Settings
-    llm: LlmClient
+    llm: StructuredLlm
     jobs: Jobs
     artifacts: Artifacts
     profiles: Profiles

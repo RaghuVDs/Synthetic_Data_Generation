@@ -12,7 +12,6 @@ from synthgen.agents.nodes.overlay_writer import approved_shares, column_list
 from synthgen.agents.nodes.reporter import fill, metrics
 from synthgen.agents.prompts.loader import data_block, load_template, render
 from synthgen.agents.state import initial_state
-from synthgen.domain.errors import LlmOutputError
 from synthgen.domain.intent import TestIntent
 from synthgen.domain.job import Approval, ApprovalDecision, RowTarget, ShareEdit, UserRequest
 from synthgen.domain.metadata import Relationship, RelationshipOrigin, TableSet
@@ -121,8 +120,6 @@ def test_reporter_fills_numbers_from_code() -> None:
     assert (
         fill("{total_rows} rows, {scenario_rows_customers_big} big", values) == "1,200 rows, 12 big"
     )
-    with pytest.raises(LlmOutputError):
-        fill("{made_up}", values)
 
 
 def test_row_targets_follow_flags_then_volume_hint() -> None:

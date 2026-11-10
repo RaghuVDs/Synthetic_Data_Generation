@@ -16,8 +16,38 @@
               "note": null
             },
             {
+              "name": "first_name",
+              "role": "sensitive_identifier",
+              "note": null
+            },
+            {
+              "name": "last_name",
+              "role": "sensitive_identifier",
+              "note": null
+            },
+            {
               "name": "email",
               "role": "sensitive_identifier",
+              "note": null
+            },
+            {
+              "name": "phone",
+              "role": "sensitive_identifier",
+              "note": null
+            },
+            {
+              "name": "date_of_birth",
+              "role": "sensitive_identifier",
+              "note": null
+            },
+            {
+              "name": "city",
+              "role": "location",
+              "note": null
+            },
+            {
+              "name": "country",
+              "role": "location",
               "note": null
             },
             {
@@ -26,7 +56,17 @@
               "note": null
             },
             {
+              "name": "signup_date",
+              "role": "event_time",
+              "note": null
+            },
+            {
               "name": "annual_income",
+              "role": "measure",
+              "note": null
+            },
+            {
+              "name": "credit_score",
               "role": "measure",
               "note": null
             }
@@ -50,13 +90,28 @@
               "note": null
             },
             {
-              "name": "balance",
-              "role": "measure",
+              "name": "account_type",
+              "role": "category",
+              "note": null
+            },
+            {
+              "name": "opened_date",
+              "role": "event_time",
               "note": null
             },
             {
               "name": "status",
               "role": "status",
+              "note": null
+            },
+            {
+              "name": "balance",
+              "role": "measure",
+              "note": null
+            },
+            {
+              "name": "credit_limit",
+              "role": "measure",
               "note": null
             }
           ]

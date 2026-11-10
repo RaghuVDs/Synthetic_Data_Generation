@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 
-from synthgen.agents.nodes.common import as_json, cards
+from synthgen.agents.meaning import check_overlays
+from synthgen.agents.nodes.common import as_json, ask, cards, job_columns
 from synthgen.agents.nodes.deps import NodeDeps, StateUpdate
-from synthgen.agents.prompts.loader import render
 from synthgen.agents.state import JobState
 from synthgen.domain.errors import SynthgenError
 from synthgen.domain.job import ArtifactKind
@@ -37,7 +37,11 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
     counters = state["counters"]
     if state["spec_errors"]:
         counters = counters.model_copy(update={"spec_repair": counters.spec_repair + 1})
-    _, messages = render(
+    expected = [s.name for s in plan.scenarios]
+    columns = job_columns(state, deps)
+    overlays = ask(
+        state,
+        deps,
         ROLE,
         {
             "APPROVED_PLAN": as_json(plan),
@@ -45,8 +49,9 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
             "PROFILE_CARDS": as_json(cards(state, deps)),
             "SPEC_ERRORS": as_json(state["spec_errors"]) if state["spec_errors"] else "none",
         },
+        OverlaySet,
+        meaning=lambda value: check_overlays(value, expected, columns),
     )
-    overlays = deps.llm.complete(messages, OverlaySet)
     return {"overlays": approved_shares(overlays, plan), "spec_ref": None, "counters": counters}
 
 

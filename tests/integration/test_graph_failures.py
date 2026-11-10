@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -37,12 +36,26 @@ def _run(make_app: AppFactory, env: dict[str, str]) -> tuple[str, JobStatus, str
 def test_overlay_errors_stop_at_the_repair_cap(
     make_app: AppFactory, job_env: EnvFactory, tmp_path: Path
 ) -> None:
-    unknown = _overlay("no_such_column", {"type": "constant", "value": 1})
+    wrong_type = _overlay("opened_date", {"type": "pattern", "masks": ["AAA"], "weights": [1.0]})
     _, status, error = _run(
-        make_app, job_env(fixture_set(tmp_path / "fx", OverlaySet=[(None, unknown)]))
+        make_app, job_env(fixture_set(tmp_path / "fx", OverlaySet=[(None, wrong_type)]))
     )
     assert status is JobStatus.NEEDS_REVIEW
     assert error == "spec still invalid after 3 repairs"
+
+
+def test_unknown_column_is_reprompted_until_the_cap(
+    make_app: AppFactory, job_env: EnvFactory, tmp_path: Path
+) -> None:
+    unknown = _overlay("no_such_column", {"type": "constant", "value": 1})
+    env = job_env(fixture_set(tmp_path / "fx", OverlaySet=[(None, unknown)]))
+    job_id, status, error = _run(make_app, env)
+    assert status is JobStatus.NEEDS_REVIEW
+    assert error is not None and error.startswith("OverlaySet failed after 3 attempts")
+    assert "unknown column accounts.no_such_column" in error
+    calls = make_app(env)._llm_log.for_job(job_id)
+    overlay_calls = [c for c in calls if c.node == "overlay_writer"]
+    assert [c.status for c in overlay_calls] == ["invalid"] * 3
 
 
 def test_invalid_llm_output_needs_review(
@@ -66,20 +79,13 @@ def test_dry_run_failure_is_repaired(
     patch = {
         "patches": [
             {
-                "path": "/scenarios/0/overrides/0/column",
-                "value_json": '"balance"',
-                "reason": "wrong column",
-            },
-            {
-                "path": "/scenarios/0/overrides/0/generator",
-                "value_json": json.dumps(
-                    {"type": "empirical", "quantiles": [50000.0, 90000.0], "decimals": 2}
-                ),
-                "reason": "balances, not keys",
-            },
+                "path": "/scenarios/0/overrides/0/generator/value",
+                "value_json": "1",
+                "reason": "point scenario accounts at an existing customer",
+            }
         ],
         "plan_change_required": False,
-        "explanation": "The overlay changed the key instead of the balance.",
+        "explanation": "The overlay pointed accounts at a customer that does not exist.",
     }
     env = job_env(
         fixture_set(tmp_path / "fx", OverlaySet=[(None, BROKEN_FK)], SpecPatch=[(None, patch)])
@@ -95,11 +101,39 @@ def test_dry_run_failure_is_repaired(
 def test_unrepaired_dry_run_stops_at_the_cap(
     make_app: AppFactory, job_env: EnvFactory, tmp_path: Path
 ) -> None:
-    _, status, error = _run(
-        make_app, job_env(fixture_set(tmp_path / "fx", OverlaySet=[(None, BROKEN_FK)]))
+    useless = {
+        "patches": [
+            {
+                "path": "/scenarios/0/overrides/0/generator/value",
+                "value_json": "999998",
+                "reason": "r",
+            }
+        ],
+        "plan_change_required": False,
+        "explanation": "Try another customer.",
+    }
+    env = job_env(
+        fixture_set(tmp_path / "fx", OverlaySet=[(None, BROKEN_FK)], SpecPatch=[(None, useless)])
     )
+    _, status, error = _run(make_app, env)
     assert status is JobStatus.NEEDS_REVIEW
     assert error == "dry run still failing after 3 repairs"
+
+
+def test_disallowed_patch_path_needs_review(
+    make_app: AppFactory, job_env: EnvFactory, tmp_path: Path
+) -> None:
+    sneaky = {
+        "patches": [{"path": "/scenarios/0/share", "value_json": "0.5", "reason": "r"}],
+        "plan_change_required": False,
+        "explanation": "Change the share.",
+    }
+    env = job_env(
+        fixture_set(tmp_path / "fx", OverlaySet=[(None, BROKEN_FK)], SpecPatch=[(None, sneaky)])
+    )
+    _, status, error = _run(make_app, env)
+    assert status is JobStatus.NEEDS_REVIEW
+    assert error is not None and "/scenarios/0/share is not patchable" in error
 
 
 def test_plan_change_request_returns_to_approval(

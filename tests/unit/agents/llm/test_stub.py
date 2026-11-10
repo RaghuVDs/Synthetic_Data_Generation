@@ -7,7 +7,7 @@ import pytest
 
 from synthgen.agents.llm.client import Message
 from synthgen.agents.llm.stub import StubClient
-from synthgen.domain.errors import LlmError, LlmOutputError
+from synthgen.domain.errors import LlmError
 from synthgen.domain.summary import Summary
 
 
@@ -30,24 +30,22 @@ def test_last_matching_entry_wins(tmp_path: Path) -> None:
         ],
     )
     stub = StubClient(tmp_path)
-    assert stub.complete(_ask("first"), Summary).text == "default"
-    assert stub.complete(_ask("ANSWER: yes"), Summary).text == "answered"
-    assert stub.complete(_ask("first"), Summary).text == "default"
-    assert [name for name, _ in stub.calls] == ["Summary"] * 3
+    assert json.loads(stub.complete(_ask("first"), Summary, 0.0).text)["text"] == "default"
+    assert json.loads(stub.complete(_ask("ANSWER: yes"), Summary, 0.0).text)["text"] == "answered"
+    assert [name for name, _ in stub.calls] == ["Summary", "Summary"]
 
 
-def test_invalid_recorded_response_is_an_output_error(tmp_path: Path) -> None:
-    _write(tmp_path, "Summary", [{"match": None, "response": {"text": "x"}}])
-    with pytest.raises(LlmOutputError):
-        StubClient(tmp_path).complete(_ask("q"), Summary)
+def test_string_responses_are_sent_verbatim(tmp_path: Path) -> None:
+    _write(tmp_path, "Summary", [{"match": None, "response": "not json"}])
+    assert StubClient(tmp_path).complete(_ask("q"), Summary, 0.0).text == "not json"
 
 
 def test_missing_or_unmatched_fixture_fails(tmp_path: Path) -> None:
     with pytest.raises(LlmError):
-        StubClient(tmp_path).complete(_ask("q"), Summary)
+        StubClient(tmp_path).complete(_ask("q"), Summary, 0.0)
     _write(tmp_path, "Summary", [{"match": "zzz", "response": {"text": "x", "caveats": []}}])
     with pytest.raises(LlmError):
-        StubClient(tmp_path).complete(_ask("q"), Summary)
+        StubClient(tmp_path).complete(_ask("q"), Summary, 0.0)
 
 
 def test_tool_turns(tmp_path: Path) -> None:
@@ -64,5 +62,8 @@ def test_tool_turns(tmp_path: Path) -> None:
             }
         ],
     )
-    turn = StubClient(tmp_path).complete_with_tools(_ask("q"), [])
+    turn = StubClient(tmp_path).complete_with_tools(_ask("q"), [], 0.3)
     assert turn.tool_calls[0].name == "get_column_profile"
+    _write(tmp_path, "ToolTurn", [{"match": None, "response": "oops"}])
+    with pytest.raises(LlmError):
+        StubClient(tmp_path).complete_with_tools(_ask("q"), [], 0.3)

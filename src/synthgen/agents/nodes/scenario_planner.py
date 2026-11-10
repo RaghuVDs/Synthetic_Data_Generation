@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from synthgen.agents.nodes.common import as_json, cards
+from synthgen.agents.meaning import check_plan
+from synthgen.agents.nodes.common import as_json, ask, cards, job_columns
 from synthgen.agents.nodes.deps import NodeDeps, StateUpdate
-from synthgen.agents.prompts.loader import render
 from synthgen.agents.state import JobState
 from synthgen.domain.errors import SynthgenError
 from synthgen.domain.job import ApprovalDecision, ArtifactKind
@@ -23,8 +23,11 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
     counters = state["counters"]
     if replanning:
         counters = counters.model_copy(update={"plan_rounds": counters.plan_rounds + 1})
+    columns = job_columns(state, deps)
     feedback = approval.feedback if replanning and approval and approval.feedback else "none"
-    _, messages = render(
+    plan = ask(
+        state,
+        deps,
         ROLE,
         {
             "INTENT": as_json(intent),
@@ -33,7 +36,8 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
             "PREVIOUS_PLAN": as_json(state["plan"]) if replanning and state["plan"] else "none",
             "FEEDBACK": feedback,
         },
+        ScenarioPlan,
+        meaning=lambda value: check_plan(value, columns, set()),
     )
-    plan = deps.llm.complete(messages, ScenarioPlan)
     deps.artifacts.put(state["job_id"], ArtifactKind.PLAN, plan)
     return {"plan": plan, "approval": None, "counters": counters}

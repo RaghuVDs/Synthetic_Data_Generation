@@ -9,16 +9,19 @@ from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
 
+import httpx
 import pyarrow as pa
 
 from synthgen.agents.graph import JobRunner, open_checkpointer
 from synthgen.agents.llm.client import LlmClient
+from synthgen.agents.llm.openai_compatible import OpenAiCompatibleClient
+from synthgen.agents.llm.structured import StructuredLlm
 from synthgen.agents.llm.stub import StubClient
 from synthgen.agents.nodes.deps import NodeDeps, Source
 from synthgen.config import Settings, load_settings, read_environment
 from synthgen.connectors.sqlite import SqliteConnector
 from synthgen.domain.base import StrictModel
-from synthgen.domain.errors import ConfigError, MetadataError, NotFoundError, SynthgenError
+from synthgen.domain.errors import MetadataError, NotFoundError, SynthgenError
 from synthgen.domain.job import IDENTIFIER_PATTERN, Approval, ArtifactKind, JobRecord, UserRequest
 from synthgen.domain.metadata import SourceOverview, TableSummary
 from synthgen.domain.pending import Pending, PendingApproval, PendingClarification
@@ -34,6 +37,7 @@ from synthgen.seed.orders import build_orders
 from synthgen.storage.artifact_store import ArtifactStore
 from synthgen.storage.db import Clock, StateDatabase, utc_now
 from synthgen.storage.job_store import JobStore
+from synthgen.storage.llm_call_log import LlmCallLog
 from synthgen.storage.profile_store import ProfileStore
 
 SeedBuilder = Callable[[Path, int, float], dict[str, int]]
@@ -74,10 +78,13 @@ class Application:
         return self._settings
 
     def close(self) -> None:
-        """Release the checkpoint connection if the graph was used."""
+        """Release the checkpoint and HTTP connections if they were opened."""
         runner = self.__dict__.get("_runner")
         if isinstance(runner, JobRunner):
             runner.close()
+        http = self.__dict__.get("_http")
+        if isinstance(http, httpx.Client):
+            http.close()
 
     def __enter__(self) -> Application:
         """Use as `with build_application(...) as app:` so resources are released."""
@@ -104,10 +111,20 @@ class Application:
         return ProfileStore(self._db, self._clock)
 
     @cached_property
+    def _llm_log(self) -> LlmCallLog:
+        return LlmCallLog(self._db, self._clock)
+
+    @cached_property
+    def _http(self) -> httpx.Client:
+        return httpx.Client()
+
+    @cached_property
     def _runner(self) -> JobRunner:
+        client = self._llm or make_llm(self._settings, self._http)
+        llm = StructuredLlm(client, self._llm_log, self._settings.agent.caps.llm_reprompts)
         deps = NodeDeps(
             settings=self._settings,
-            llm=self._llm or make_llm(self._settings),
+            llm=llm,
             jobs=self._jobs,
             artifacts=self._artifacts,
             profiles=self._profiles,
@@ -276,11 +293,11 @@ class Application:
         return doc
 
 
-def make_llm(settings: Settings) -> LlmClient:
+def make_llm(settings: Settings, http: httpx.Client) -> LlmClient:
     """The LLM client named by `LLM_PROVIDER`."""
     if settings.llm.provider == "stub":
         return StubClient(settings.llm.stub_fixtures)
-    raise ConfigError("LLM_PROVIDER=openai_compatible is not available yet; use stub")
+    return OpenAiCompatibleClient(settings.llm, http)
 
 
 def build_application(

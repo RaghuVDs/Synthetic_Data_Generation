@@ -47,6 +47,8 @@ class LlmSettings(_Group):
     max_attempts: int = Field(ge=1)
     backoff_base_seconds: float = Field(gt=0)
     backoff_max_seconds: float = Field(gt=0)
+    backoff_jitter: float = Field(ge=0.0, le=1.0)
+    strict_output: bool
     requests_per_minute: int = Field(ge=1)
 
 

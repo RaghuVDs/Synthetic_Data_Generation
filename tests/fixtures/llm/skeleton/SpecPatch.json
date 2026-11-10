@@ -3,8 +3,8 @@
     "match": null,
     "response": {
       "patches": [],
-      "plan_change_required": false,
-      "explanation": "No change needed"
+      "plan_change_required": true,
+      "explanation": "No generator parameter change can fix these checks."
     }
   }
 ]

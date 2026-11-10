@@ -3,18 +3,16 @@
 from __future__ import annotations
 
 import json
-import re
 
+from synthgen.agents.meaning import PLACEHOLDER, check_summary
+from synthgen.agents.nodes.common import ask
 from synthgen.agents.nodes.deps import NodeDeps, StateUpdate
-from synthgen.agents.prompts.loader import render
 from synthgen.agents.state import JobState
-from synthgen.domain.errors import LlmOutputError
 from synthgen.domain.job import ArtifactKind
 from synthgen.domain.summary import Summary
 from synthgen.engine.writer import Manifest, read_manifest
 
 ROLE = "reporter"
-PLACEHOLDER = re.compile(r"\{([a-z0-9_]+)\}")
 
 
 def metrics(state: JobState, manifest: Manifest) -> dict[str, str]:
@@ -34,24 +32,25 @@ def metrics(state: JobState, manifest: Manifest) -> dict[str, str]:
 
 
 def fill(text: str, values: dict[str, str]) -> str:
-    """Replace every {placeholder}; an unknown name is an output error."""
-    unknown = sorted(set(PLACEHOLDER.findall(text)) - set(values))
-    if unknown:
-        raise LlmOutputError(f"summary uses unknown metrics: {', '.join(unknown)}")
+    """Replace every {placeholder}; the meaning gate has already rejected unknown names."""
     return PLACEHOLDER.sub(lambda m: values[m.group(1)], text)
 
 
 def run(state: JobState, deps: NodeDeps) -> StateUpdate:
     """Write the summary with real numbers in place of placeholders."""
     values = metrics(state, read_manifest(deps.job_dir(state["job_id"])))
-    _, messages = render(
+    intent = state["intent"]
+    draft = ask(
+        state,
+        deps,
         ROLE,
         {
             "METRICS": json.dumps(sorted(values)),
-            "INTENT": state["intent"].model_dump_json() if state["intent"] else "none",
+            "INTENT": intent.model_dump_json() if intent else "none",
         },
+        Summary,
+        meaning=lambda value: check_summary(value, set(values)),
     )
-    draft = deps.llm.complete(messages, Summary)
     summary = Summary(
         text=fill(draft.text, values), caveats=[fill(c, values) for c in draft.caveats]
     )

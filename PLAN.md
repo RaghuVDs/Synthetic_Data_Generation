@@ -191,6 +191,23 @@ confirmed or corrected it moves to section 3.
   checkpoint connection.
 - 2026-11-10 (M2): T2.11 and T2.12 share one commit (their tests import both).
   Test folders are packages so module names stay unique for mypy.
+- 2026-11-10 (M3): Revises A13. The OpenAI-compatible client uses `httpx`
+  directly, not the `openai` SDK, so retries, backoff with jitter and
+  Retry-After stay in one place and tests use `httpx.MockTransport`. Groq docs
+  checked: strict `json_schema` output is supported on `openai/gpt-oss-120b`;
+  `anyOf`, `enum`, `$defs`/`$ref` are documented, other validation keywords
+  are not, so the strict schema drops them (Pydantic still enforces them);
+  structured output cannot be combined with tools; no parallel tool calls.
+- 2026-11-10 (M3): `LlmClient.complete` returns the raw reply text with usage
+  and latency instead of a parsed model (SPEC 4.1 sketch). `StructuredLlm`
+  runs gates 2 and 3, re-prompts with the previous output and a numbered error
+  list, logs every call to `llm_calls`, and raises `LlmOutputError` after
+  `llm_reprompts` (3) attempts in total. T3.1 and T3.2 share one commit.
+- 2026-11-10 (M3): Repair patches may only change generator parameters
+  (`/scenarios/i/overrides/j/generator/<param>` and
+  `/tables/i/columns/j/generator/<param>`, never `type`); other paths are a
+  gate-3 error asking for `plan_change_required`. Gate 3 also requires the
+  summary to contain no digits outside `{placeholders}`.
 
 ## 4. Milestones
 
@@ -344,11 +361,11 @@ confirmed or corrected it moves to section 3.
   primitives and feasibility, producing approved plans and valid overlays.
 - **Spec sections:** 4, 5, 6, 7, 3.3–3.5.
 - **Tasks:**
-  - [ ] T3.1 OpenAI-compatible client: `agents/llm/openai_compatible.py`,
+  - [x] T3.1 OpenAI-compatible client: `agents/llm/openai_compatible.py`,
     `agents/llm/retry.py` (backoff with jitter, `Retry-After`, rate limiter).
     Tests: `tests/unit/agents/llm/test_openai_compatible.py` (mocked HTTP
     transport only).
-  - [ ] T3.2 Structured output and gates: `agents/llm/structured.py` (strict
+  - [x] T3.2 Structured output and gates: `agents/llm/structured.py` (strict
     schema, JSON-mode fallback, numbered-error re-prompt, cap 3),
     `storage/llm_call_log.py`. Tests: `test_structured.py` (bad JSON, schema
     failure, meaning failure, cap → `needs_review`, every call logged, no

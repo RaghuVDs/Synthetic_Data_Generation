@@ -1,10 +1,11 @@
 """Apply a SpecPatch: replace values at JSON pointers (RFC 6901), then re-validate the spec.
 
-M3 restricts patches to an allow-list of paths; M2 applies any path that exists.
+Only allow-listed paths may be patched (SPEC 5); anything else needs a plan change.
 """
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from pydantic import ValidationError
@@ -61,3 +62,24 @@ def apply_patch(spec: GenerationSpec, patch: SpecPatch) -> GenerationSpec:
         return GenerationSpec.model_validate(document)
     except ValidationError as exc:
         raise PatchError(f"patched spec is invalid: {exc}") from exc
+
+
+ALLOWED_PATHS = (
+    re.compile(r"^/scenarios/\d+/overrides/\d+/generator/(?!type$)[^/]+(/.*)?$"),
+    re.compile(r"^/tables/\d+/columns/\d+/generator/(?!type$)[^/]+(/.*)?$"),
+)
+"""Generator parameters of overrides and baseline columns; never a generator's type (SPEC 5)."""
+
+
+def disallowed_paths(patch: SpecPatch) -> list[str]:
+    """Patch paths outside the allow-list."""
+    return [op.path for op in patch.patches if not any(p.match(op.path) for p in ALLOWED_PATHS)]
+
+
+def try_apply(spec: GenerationSpec, patch: SpecPatch) -> list[str]:
+    """Why the patch cannot be applied; empty when it applies."""
+    try:
+        apply_patch(spec, patch)
+    except PatchError as exc:
+        return [str(exc)]
+    return []
