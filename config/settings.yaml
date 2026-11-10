@@ -1,0 +1,74 @@
+# Defaults for every tunable value. Environment variables override them:
+#   SYNTHGEN_<GROUP>__<KEY>  e.g. SYNTHGEN_PATHS__DATA_DIR=/home/me/synthgen-data
+#   LLM_PROVIDER, LLM_BASE_URL, LLM_MODEL, LLM_API_KEY, LLM_STUB_FIXTURES
+
+llm:
+  provider: stub                      # stub | openai_compatible
+  base_url: https://api.groq.com/openai/v1
+  model: openai/gpt-oss-120b
+  api_key: null                       # from LLM_API_KEY only; never put a key here
+  stub_fixtures: tests/fixtures/llm/skeleton
+  temperature: 0.0
+  planner_temperature: 0.3
+  timeout_seconds: 60
+  max_attempts: 5                     # HTTP retries on rate limits and server errors
+  backoff_base_seconds: 1.0
+  backoff_max_seconds: 30.0
+  requests_per_minute: 30             # client-side rate limiter
+
+profiling:
+  sample_size: 200000
+  cache_max_age_days: 7
+  histogram_bins: 50
+  quantile_points: 1001
+  percentiles: [1, 5, 10, 25, 50, 75, 90, 95, 99, 99.9]
+  max_full_frequencies: 1000
+  top_frequencies: 100
+  rare_value_share: 0.001
+  internal_min_count: 10
+  shapiro_max_rows: 5000
+  card_top_values: 5
+  mapper_batch_tables: 15
+
+generation:
+  default_root_rows: 1000
+  max_rows_per_table: 10000000
+  chunk_rows: 250000
+  dry_run_max_root_entities: 5000
+  chunk_retries: 3
+  text_pool_max_values: 500
+  workers: 1
+
+agent:
+  caps:
+    clarify: 2
+    plan_rounds: 3
+    planner_tool_calls: 8
+    spec_repair: 3
+    validation_repair: 3
+    llm_reprompts: 3
+  tool_result_max_tokens: 2000
+  plan_expiry_days: 7
+
+validation:
+  ks_max: 0.10
+  wasserstein_iqr_max: 0.10
+  js_category_max: 0.10
+  null_rate_diff_max: 0.02
+  spearman_diff_max: 0.10
+  js_temporal_max: 0.10
+  ks_children_max: 0.10
+  row_count_tolerance: 0.01
+  scenario_share_rel_tolerance: 0.10
+  signature_pass_min: 0.99
+  scenario_ks_min: 0.30
+  privacy_sample_size: 10000
+  min_fidelity_rows: 1000             # PLAN Q6: smaller typical samples skip fidelity
+  privacy_identifier_min_ratio: 0.5   # PLAN Q7: exact-match check on identifier-like columns
+
+paths:
+  data_dir: data
+  output_dir: output
+  metadata_dir: config/metadata
+  state_db: state.db                  # inside data_dir
+  checkpoints_db: checkpoints.db      # inside data_dir
