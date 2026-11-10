@@ -1,0 +1,76 @@
+# Hand-written metadata for the fake finance source (data/finance.db).
+# Sensitivity: public = full statistics; internal = rare values folded;
+# sensitive = masks and lengths only, never values.
+
+source: finance
+description: Retail banking customers, their accounts and cards, merchants and card transactions.
+
+tables:
+  customers:
+    description: People who hold one or more accounts.
+    columns:
+      customer_id: {description: "Unique customer number.", sensitivity: public}
+      first_name: {description: "Given name.", sensitivity: sensitive}
+      last_name: {description: "Family name.", sensitivity: sensitive}
+      email: {description: "Contact email address.", sensitivity: sensitive}
+      phone: {description: "Contact phone number; missing for some customers.", sensitivity: sensitive}
+      date_of_birth: {description: "Date of birth.", sensitivity: sensitive}
+      city: {description: "City of residence.", sensitivity: internal}
+      country: {description: "Two-letter country code of residence.", sensitivity: public}
+      segment: {description: "Customer segment (retail, premium or business).", sensitivity: public}
+      signup_date: {description: "Date the customer joined the bank.", sensitivity: public}
+      annual_income: {description: "Declared yearly income; missing for some customers.", sensitivity: internal}
+      credit_score: {description: "Credit score between 300 and 850.", sensitivity: internal}
+
+  accounts:
+    description: Bank accounts. A customer can hold several.
+    columns:
+      account_id: {description: "Unique account number.", sensitivity: public}
+      customer_id: {description: "Owner of the account.", sensitivity: public}
+      account_type: {description: "Checking, savings or credit.", sensitivity: public}
+      opened_date: {description: "Date the account was opened; never before the customer's signup.", sensitivity: public}
+      status: {description: "Active, closed or frozen.", sensitivity: public}
+      balance: {description: "Current balance.", sensitivity: internal}
+      credit_limit: {description: "Credit limit; set only for credit accounts.", sensitivity: internal}
+
+  cards:
+    description: Payment cards issued on accounts.
+    columns:
+      card_id: {description: "Unique card number in the bank's system.", sensitivity: public}
+      account_id: {description: "Account the card draws on.", sensitivity: public}
+      card_number: {description: "Primary account number with a Luhn check digit.", sensitivity: sensitive}
+      network: {description: "Card network (visa, mastercard or amex).", sensitivity: public}
+      card_type: {description: "Debit or credit.", sensitivity: public}
+      issued_date: {description: "Date the card was issued; never before the account opened.", sensitivity: public}
+      expiry_date: {description: "Date the card expires; always after issue.", sensitivity: public}
+      status: {description: "Active, blocked or expired.", sensitivity: public}
+
+  merchants:
+    description: Businesses where cards are used.
+    columns:
+      merchant_id: {description: "Unique merchant number.", sensitivity: public}
+      name: {description: "Trading name.", sensitivity: public}
+      category: {description: "Business category.", sensitivity: public}
+      mcc: {description: "Four-digit merchant category code; follows the category.", sensitivity: public}
+      city: {description: "City of the merchant.", sensitivity: public}
+      country: {description: "Two-letter country code of the merchant.", sensitivity: public}
+      risk_level: {description: "Internal risk rating (low, medium or high).", sensitivity: internal}
+
+  transactions:
+    description: Card payments. One row per authorisation attempt.
+    columns:
+      transaction_id: {description: "Unique transaction number, increasing with time.", sensitivity: public}
+      card_id: {description: "Card used.", sensitivity: public}
+      merchant_id: {description: "Merchant paid.", sensitivity: public}
+      amount: {description: "Amount in the transaction currency.", sensitivity: public}
+      currency: {description: "Three-letter currency code.", sensitivity: public}
+      txn_timestamp: {description: "Date and time of the attempt; never before the card was issued.", sensitivity: public}
+      channel: {description: "Point of sale, online or ATM.", sensitivity: public}
+      status: {description: "Approved, declined or reversed.", sensitivity: public}
+      is_fraud: {description: "1 when the transaction was confirmed as fraud, else 0.", sensitivity: public}
+
+relationships:
+  - {child: accounts.customer_id, parent: customers.customer_id, drives_cardinality: true}
+  - {child: cards.account_id, parent: accounts.account_id, drives_cardinality: true}
+  - {child: transactions.card_id, parent: cards.card_id, drives_cardinality: true}
+  - {child: transactions.merchant_id, parent: merchants.merchant_id}

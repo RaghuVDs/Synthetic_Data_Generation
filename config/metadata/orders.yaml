@@ -1,0 +1,68 @@
+# Hand-written metadata for the fake orders source (data/orders.db).
+# order_items.product_id is deliberately not listed under relationships: it is
+# picked up from the database's own foreign key (PLAN A15).
+
+source: orders
+description: An online shop's customers, product catalogue, orders, order lines and shipments.
+
+tables:
+  customers:
+    description: People who have an account with the shop.
+    columns:
+      customer_id: {description: "Unique customer number.", sensitivity: public}
+      first_name: {description: "Given name.", sensitivity: sensitive}
+      last_name: {description: "Family name.", sensitivity: sensitive}
+      email: {description: "Login and contact email address.", sensitivity: sensitive}
+      city: {description: "City of the delivery address.", sensitivity: internal}
+      country: {description: "Two-letter country code of the delivery address.", sensitivity: public}
+      signup_date: {description: "Date the account was created.", sensitivity: public}
+      loyalty_tier: {description: "Bronze, silver, gold or platinum.", sensitivity: public}
+      birth_year: {description: "Year of birth; optional.", sensitivity: internal}
+
+  products:
+    description: The product catalogue.
+    columns:
+      product_id: {description: "Unique product number.", sensitivity: public}
+      sku: {description: "Stock-keeping unit; three-letter category code, dash, five digits.", sensitivity: public}
+      name: {description: "Product name shown in the shop.", sensitivity: public}
+      category: {description: "Catalogue category.", sensitivity: public}
+      unit_price: {description: "List price per unit.", sensitivity: public}
+      weight_kg: {description: "Shipping weight in kilograms.", sensitivity: public}
+      is_active: {description: "1 when the product is on sale, else 0.", sensitivity: public}
+
+  orders:
+    description: Customer orders. Order IDs increase with time.
+    columns:
+      order_id: {description: "Unique order number.", sensitivity: public}
+      customer_id: {description: "Customer who placed the order.", sensitivity: public}
+      order_ts: {description: "Date and time the order was placed; never before signup.", sensitivity: public}
+      status: {description: "Placed, shipped, delivered, cancelled or returned.", sensitivity: public}
+      channel: {description: "Web, app or store.", sensitivity: public}
+      discount_code: {description: "Promotion code used; empty when none.", sensitivity: public}
+      total_amount: {description: "Sum of the order's line totals.", sensitivity: public}
+
+  order_items:
+    description: Lines of an order. One row per product in an order.
+    columns:
+      order_item_id: {description: "Unique line number.", sensitivity: public}
+      order_id: {description: "Order the line belongs to.", sensitivity: public}
+      product_id: {description: "Product ordered.", sensitivity: public}
+      quantity: {description: "Units ordered.", sensitivity: public}
+      unit_price: {description: "Price paid per unit after any discount.", sensitivity: public}
+      line_total: {description: "Quantity times unit price.", sensitivity: public}
+
+  shipments:
+    description: Deliveries. At most one per order; only for orders that left the warehouse.
+    columns:
+      shipment_id: {description: "Unique shipment number.", sensitivity: public}
+      order_id: {description: "Order being delivered.", sensitivity: public}
+      carrier: {description: "Delivery company.", sensitivity: public}
+      shipped_date: {description: "Date the parcel left; never before the order.", sensitivity: public}
+      promised_date: {description: "Delivery date promised to the customer; set by carrier.", sensitivity: public}
+      delivered_date: {description: "Date delivered; empty while in transit.", sensitivity: public}
+      is_late: {description: "1 when delivered after the promised date, 0 when on time, empty in transit.", sensitivity: public}
+
+relationships:
+  - {child: orders.customer_id, parent: customers.customer_id, drives_cardinality: true}
+  - {child: order_items.order_id, parent: orders.order_id, drives_cardinality: true}
+  - {child: shipments.order_id, parent: orders.order_id, drives_cardinality: true}
