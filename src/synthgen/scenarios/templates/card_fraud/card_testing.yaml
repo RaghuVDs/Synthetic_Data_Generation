@@ -1,0 +1,18 @@
+id: card_fraud.card_testing
+domain: card fraud
+name: Card testing
+version: 1
+category: target_scenario
+description: >-
+  A stolen card is tried with many small purchases in a short burst before a
+  large one, to check that it works.
+required_roles: [entity_key, event_time, measure]
+primitives: [sequence, value_shift]
+levers:
+  - {role: measure, primitive: value_shift, change: "amounts below the 10th percentile"}
+  - {role: event_time, primitive: sequence, change: "5 to 20 events within one hour per card"}
+signature:
+  - {role: event_time, metric: count, operator: ge, value_hint: "5 per entity within 1 hour"}
+  - {role: measure, metric: value, operator: le, value_hint: "10th percentile"}
+parameters: {burst_min: 5, burst_max: 20, window_hours: 1}
+default_share: 0.002

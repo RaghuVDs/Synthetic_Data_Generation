@@ -1,0 +1,17 @@
+id: card_fraud.night_high_value
+domain: card fraud
+name: High-value purchases at night
+version: 1
+category: target_scenario
+description: >-
+  Unusually large purchases placed between midnight and 5 am, when the card
+  holder is usually inactive.
+required_roles: [event_time, measure]
+primitives: [value_shift, timing_shift]
+levers:
+  - {role: measure, primitive: value_shift, change: "amounts above the 99th percentile"}
+  - {role: event_time, primitive: timing_shift, change: "hours 0 to 5"}
+signature:
+  - {role: measure, metric: value, operator: ge, value_hint: "99th percentile"}
+parameters: {night_start_hour: 0, night_end_hour: 5}
+default_share: 0.002

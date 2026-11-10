@@ -133,6 +133,7 @@ class PathSettings(_Group):
     data_dir: Path
     output_dir: Path
     metadata_dir: Path
+    templates_dir: Path | None
     state_db: str
     checkpoints_db: str
 

@@ -77,5 +77,6 @@ paths:
   data_dir: data
   output_dir: output
   metadata_dir: config/metadata
+  templates_dir: null                 # null = the built-in pack in synthgen/scenarios/templates
   state_db: state.db                  # inside data_dir
   checkpoints_db: checkpoints.db      # inside data_dir

@@ -1,0 +1,16 @@
+id: card_fraud.compromised_merchant
+domain: card fraud
+name: Compromised merchant
+version: 1
+category: target_scenario
+description: >-
+  Many unrelated cards are used at the same small merchant in a short period,
+  as when a terminal has been skimmed.
+required_roles: [foreign_key, event_time]
+primitives: [cross_entity_link, volume_skew]
+levers:
+  - {role: foreign_key, primitive: cross_entity_link, change: "cards share one merchant"}
+signature:
+  - {role: foreign_key, metric: distinct_count, operator: ge, value_hint: "20 cards per merchant per day"}
+parameters: {cards_per_merchant: 20}
+default_share: 0.001

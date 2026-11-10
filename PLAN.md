@@ -208,6 +208,10 @@ confirmed or corrected it moves to section 3.
   `/tables/i/columns/j/generator/<param>`, never `type`); other paths are a
   gate-3 error asking for `plan_change_required`. Gate 3 also requires the
   summary to contain no digits outside `{placeholders}`.
+- 2026-11-10 (M3): Revises Q2 layering: `spec` now ranks below `scenarios`
+  (`profiling <- spec <- scenarios <- engine <- validation`). The feasibility
+  check reads which constructs the spec models offer; `spec` never needs
+  `scenarios`. The architecture test enforces the new order.
 
 ## 4. Milestones
 
@@ -381,7 +385,7 @@ confirmed or corrected it moves to section 3.
     `agents/tools/profile_tools.py` (seven tools, argument validation,
     ~2,000-token cap, per-job cache, sensitive masks). Tests:
     `tests/unit/agents/tools/test_tools.py`.
-  - [ ] T3.6 Scenarios package: `scenarios/primitives.py` (14 primitives →
+  - [x] T3.6 Scenarios package: `scenarios/primitives.py` (14 primitives →
     spec constructs), `scenarios/profile_derived.py`,
     `scenarios/feasibility.py`, `scenarios/templates/loader.py`,
     `scenarios/templates/card_fraud/*.yaml`. Tests: `tests/unit/scenarios/`.
