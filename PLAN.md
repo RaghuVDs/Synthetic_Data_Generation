@@ -378,7 +378,7 @@ confirmed or corrected it moves to section 3.
     scenario_planner,overlay_writer,repair_analyst,reporter}.md`,
     `agents/prompts/loader.py` (version header, four parts, untrusted blocks).
     Tests: `tests/unit/agents/test_prompts.py`.
-  - [ ] T3.4 Intent analyst and semantic mapper (meaning gates, clarification,
+  - [x] T3.4 Intent analyst and semantic mapper (meaning gates, clarification,
     batching above 15 tables). Tests with stub fixtures, including invalid
     outputs that are re-prompted.
   - [x] T3.5 Planner tools: `agents/tools/registry.py`,
