@@ -260,11 +260,11 @@ confirmed or corrected it moves to section 3.
   - [x] T2.5 Baseline, merge, validator (basic): `spec/baseline.py`,
     `spec/merge.py`, `spec/validator.py` (tables/columns exist, generator suits
     type, weights and shares, FK order, row limits). Tests per module.
-  - [ ] T2.6 Basic generators and keys: `engine/generators.py` (sequence,
+  - [x] T2.6 Basic generators and keys: `engine/generators.py` (sequence,
     uuid, empirical, categorical, datetime, pattern, constant),
     `engine/keys.py` (PK ranges, uniform FK). Tests:
     `tests/unit/engine/test_generators.py`, `test_keys.py`.
-  - [ ] T2.7 Scenarios, writer, runner (single chunk): `engine/scenarios.py`
+  - [x] T2.7 Scenarios, writer, runner (single chunk): `engine/scenarios.py`
     (exact allocation, `_scenario`, `_category`, label columns, overlays),
     `engine/writer.py` (PyArrow zstd, manifest), `engine/runner.py`. Tests:
     `tests/unit/engine/test_runner.py` (byte-identical rerun, FKs resolve).
