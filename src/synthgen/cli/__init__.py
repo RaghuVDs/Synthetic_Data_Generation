@@ -2,12 +2,16 @@
 
 import typer
 
+from synthgen.cli import commands
+
 app = typer.Typer(
     name="synthgen",
     no_args_is_help=True,
     add_completion=False,
     pretty_exceptions_show_locals=False,
 )
+app.command("seed")(commands.seed)
+app.command("tables")(commands.tables)
 
 
 @app.callback()

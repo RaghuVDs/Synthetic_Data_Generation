@@ -82,3 +82,21 @@ class TableSet(StrictModel):
     relationships: tuple[Relationship, ...]
     deferred: tuple[Relationship, ...] = ()
     """Keys filled in a second pass: self-references and broken mutual references."""
+
+
+class TableSummary(StrictModel):
+    """One line of a source listing."""
+
+    name: str
+    description: str
+    row_count: int
+    column_count: int
+
+
+class SourceOverview(StrictModel):
+    """What `tables --source S` shows: tables with sizes, and every relationship."""
+
+    source: str
+    description: str
+    tables: tuple[TableSummary, ...]
+    relationships: tuple[Relationship, ...]
