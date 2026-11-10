@@ -1,0 +1,484 @@
+# PLAN: Synthetic Data Agent (POC)
+
+Single source of truth for progress. Rules: milestone order is fixed (ask before
+changing it), no scope beyond `SPEC.md`, tick a task only when its tests pass.
+
+---
+
+## 1. Understanding
+
+- A CLI tool (`main.py`) for testers: pick tables in a SQLite source, describe a
+  test in plain language, get labelled synthetic Parquet data that covers it.
+- Volume from 100 to 1,000,000 rows (10,000,000 is a stretch goal).
+- An LLM plans through a 15-node LangGraph graph (six LLM roles, eight code
+  steps, one human approval gate) with checkpoints, resume and capped loops.
+- Deterministic code profiles the source, compiles a baseline spec, applies
+  LLM-written scenario overlays, generates data and validates it.
+- The LLM sees only `LlmSafeProfile` cards, emits validated JSON only, and never
+  writes SQL, code or data rows.
+- Domain-neutral: card fraud and order/delivery tests run through the same code.
+- Same seed + spec + profile version gives byte-identical Parquet.
+
+## 2. Assumptions and open questions
+
+Questions marked **BLOCKING (Mx)** need an answer before milestone Mx starts.
+Every other item is an assumption I will follow unless you object; once
+confirmed or corrected it moves to section 3.
+
+### Blocking questions
+
+- **Q1 BLOCKING (M0): toolchain.** `uv` and `make` are not installed in this
+  WSL environment (Python 3.13.11 and git 2.34.1 are). Proposal: I install `uv`
+  user-level with its official installer (`~/.local/bin`, no sudo); you run
+  `! sudo apt-get install -y make`. Git has no global `user.name`/`user.email`;
+  proposal: set them repo-local (`git config user.name/user.email`) to your name
+  and `raghunaras97@gmail.com`. Please confirm both, and the name to use.
+- **Q2 BLOCKING (M1): where protocols live and which lateral imports are
+  allowed.** `CLAUDE.md` says protocols live "in the consuming package or in
+  `domain`", but the repo layout puts the `Connector` protocol in `connectors/`.
+  Also `engine` and `validation` must read `spec` models, and `spec` must read
+  profile models, which are lateral imports between inner packages.
+  Proposal: (a) put `Connector`, `MetadataProvider` and store protocols in
+  `domain/ports.py`; `connectors/` holds only the SQLite implementation.
+  (b) Allow this acyclic order between inner packages, enforced by an
+  architecture test: `domain` ← `metadata`, `connectors`, `storage` ←
+  `profiling` ← `scenarios` ← `spec` ← `engine` ← `validation`.
+- **Q3 BLOCKING (M2): row targets.** Spec says root tables are sized "from the
+  request" and child tables from parent count × cardinality. Proposal:
+  precedence for a root table is `--rows` > intent `volume_hint` >
+  `generation.default_root_rows` in settings (1,000). `--rows` on a child table
+  rescales its cardinality distribution so the expected total hits the target.
+- **Q4 BLOCKING (M2): child tables with several parents** (e.g. `transactions`
+  → `cards` and `merchants`). Proposal: the metadata YAML marks one relationship
+  per child with `drives_cardinality: true` (default: the first non-nullable
+  relationship listed). That parent sizes the child; other foreign keys are
+  drawn from their parent's key range.
+- **Q5 BLOCKING (M3): planner tool-call cap.** The hard rule says "a reached cap
+  ends the job as `needs_review`". For the 8-call planner cap, ending the job
+  is harsh. Proposal: at 8 tool calls the planner stops offering tools and makes
+  its final structured call; only a failed final call (after 3 re-prompts) ends
+  the job as `needs_review`.
+- **Q6 BLOCKING (M6): fidelity at small volumes.** At 100 rows a KS statistic of
+  ≤ 0.10 cannot be met by sampling noise alone (the 95% critical value at n=100
+  is ≈ 0.136). Proposal: fidelity checks whose typical-row sample is below
+  `validation.min_fidelity_rows` (default 1,000) report `skipped` with the
+  reason; they do not fail. Integrity, privacy and scenario presence always run.
+- **Q7 BLOCKING (M6): privacy checks on low-entropy values.** Synthetic names
+  and cities drawn from Faker will match source values that also came from
+  Faker (and real names in any real source). Proposal: the exact-match check
+  ("10,000 synthetic sensitive values found in source = 0") applies to
+  sensitive columns whose source cardinality ratio is ≥ 0.5 (identifier-like:
+  email, phone, card number). Other sensitive columns are reported as `info`.
+  The row-hash check hashes all non-key, non-label columns and skips tables
+  whose combination space is smaller than the sample (reference tables).
+
+### Assumptions (non-blocking)
+
+- **A1 Feasibility check** runs as code at the end of the `scenario_planner`
+  node, so the graph keeps exactly 15 nodes.
+- **A2 Scenario allocation** is exact, not probabilistic: per-scenario entity
+  counts are `max(1, round(share × N))` allocated by largest remainder across
+  chunks; which entities get a scenario is chosen by seeded hash rank of the
+  entity key. The share check then uses tolerance max(10% relative, 1 unit).
+- **A3 Repair → approval.** A `SpecPatch` with `plan_change_required` routes back
+  to `approval_gate` and counts against `plan_rounds`. An approval edit that
+  fails validation is shown again with errors and also counts against
+  `plan_rounds`.
+- **A4 Baseline errors.** `spec_validator` errors that come from the baseline
+  (no overlay involved) are code bugs: the job ends `failed`.
+- **A5 Failure traced to an overlay** means every failing row has a non-typical
+  `_scenario`. Otherwise an integrity or privacy failure ends the job `failed`.
+- **A6 Reporter failure.** If the reporter fails after 3 re-prompts the job ends
+  `needs_review` (hard rule), even though data and report are on disk.
+- **A7 Support tables** (unselected parents added by `context_builder`) are
+  generated and written, flagged `support` in the manifest, validated for
+  integrity and fidelity, and get no scenarios.
+- **A8 Rare-value folding.** For `internal` columns, values with fewer than 10
+  rows fold into "other"; the generator redistributes that mass over retained
+  values, so no literal "other" or suppressed value reaches the output.
+- **A9 Stub LLM fixtures** are JSON files in `tests/fixtures/llm/<set>/`, keyed
+  by role and call index; the set is chosen by `LLM_STUB_FIXTURES`. The CLI can
+  run on the stub (`LLM_PROVIDER=stub`) for the M2 acceptance.
+- **A10 Slow tests** (100,000 and 1,000,000 rows, full seed size) carry the
+  pytest marker `slow`, are excluded from `make check`, and run with
+  `make test-slow`.
+- **A11 Coverage gate** (≥ 85% on `domain`, `spec`, `engine`, `validation`) is
+  added to `make check` in M2, once those packages contain code.
+- **A12 Settings** load with `pydantic-settings` + PyYAML: YAML defaults, then
+  environment variables (prefix `SYNTHGEN_`, plus the `LLM_*` names from the
+  spec), with an optional `.env` file.
+- **A13 LLM HTTP client** uses the official `openai` Python SDK pointed at
+  `LLM_BASE_URL` (OpenAI-compatible; works for Groq). Docs checked at M3.
+- **A14 Text pools** (`text_content` primitive) are the only model-written field
+  values. They are capped at 500, length-checked, and screened against source
+  values of sensitive columns before use.
+- **A15 Seed metadata.** Both seed databases declare foreign keys in their
+  schema. One relationship in `orders.yaml` is deliberately left out to
+  exercise the `PRAGMA foreign_key_list` fallback.
+- **A16 Demo script** is a `make demo` target plus a "Demo" section in
+  `README.md`; no extra `scripts/` folder.
+- **A17 Eval at scale.** M7 golden runs use the real LLM (network, `LLM_API_KEY`)
+  through the `eval` command; they are not part of `pytest`.
+
+## 3. Decisions
+
+- 2026-11-10: User accepted all proposed defaults for Q1–Q7 and A1–A17 as
+  written in section 2. They are binding decisions from this date. Git commit
+  name still to be confirmed by the user (Q1).
+- 2026-11-10: A12 revised during T0.4. Settings use a small explicit loader in
+  `config.py` (PyYAML + Pydantic + `python-dotenv`) instead of
+  `pydantic-settings`. The environment is passed in as a mapping, so tests
+  never touch real variables, and the unprefixed `LLM_*` names map cleanly.
+  Override syntax is unchanged: `SYNTHGEN_<GROUP>__<KEY>` and `LLM_*`.
+- 2026-11-10: Ruff excludes `*.md`; ruff 0.17 otherwise reformats Python code
+  blocks inside `SPEC.md`.
+- 2026-11-10: `uv` 0.13.7 installed user-level in `~/.local/bin`.
+- 2026-11-10: User chose not to commit yet (Q1). Work stays uncommitted until
+  the user gives a commit name; no git identity is configured.
+- 2026-11-10: `make` 4.3 installed without sudo (user choice): Ubuntu package
+  unpacked into `~/.local/make`, binary linked as `~/.local/bin/make`.
+- 2026-11-10 (M1): The `Connector` protocol in `domain/ports.py` adds
+  `list_tables()` and `foreign_keys()` to the four methods of SPEC 8.2; the
+  metadata provider needs them for identifier checks and the PRAGMA fallback.
+  Composite foreign keys raise `MetadataError` (none exist in the seed data).
+- 2026-11-10 (M1): Seeded sampling uses a golden-ratio multiplicative hash on
+  `rowid` modulo 2^31-1, offset by a SHA-256 of the seed; a plain small
+  multiplier selected contiguous blocks, and a raw seed offset made nearby
+  seeds select almost the same rows.
+- 2026-11-10 (M1): A source without a metadata YAML is allowed; its
+  relationships come only from `PRAGMA foreign_key_list`. A YAML whose
+  `source:` names another source raises `MetadataError`.
+- 2026-11-10 (M1): `config/settings.yaml` gains a `seed` group (`random_seed`,
+  `scale`) so tests can build small copies of the seed sources.
+- 2026-11-10 (M1): Tooling: pydantic mypy plugin on; `pyarrow-stubs` for strict
+  typing; ruff D401 off (docstrings state what and why); S608 allowed only in
+  `connectors/sqlite.py`, where identifiers are validated and quoted.
+
+## 4. Milestones
+
+### M0 Scaffold
+
+- **Goal:** an empty, fully tooled project where `make check` passes.
+- **Spec sections:** `CLAUDE.md` (stack, structure, rules), SPEC 2, 9, 10, 13.
+- **Tasks:**
+  - [x] T0.1 `git init`; `.gitignore` (`data/`, `output/`, `.env`, caches,
+    `.venv/`); `.env.example` (`LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_MODEL`,
+    `LLM_API_KEY`). Proof: `git check-ignore data/x output/x .env` lists all three.
+  - [x] T0.2 `pyproject.toml` (Python ≥ 3.11, dependencies, ruff, mypy strict,
+    pytest), `uv.lock`, `Makefile` (`setup`, `check`, `test`, `format`).
+    Proof: `make setup` and `make check` succeed.
+  - [x] T0.3 Package skeleton `src/synthgen/**/__init__.py` per the repo layout,
+    `tests/{unit,integration,golden,fixtures}/`; architecture test
+    `tests/unit/test_architecture.py` (AST scan: `domain` imports nothing from
+    the project, only `agents` imports `langgraph`/LLM libs, only `app` imports
+    `agents`, only `main.py` imports `cli`, no `eval`/`exec`/`importlib`).
+  - [x] T0.4 `config/settings.yaml` (groups llm, profiling, generation, agent,
+    validation, paths), `src/synthgen/config.py`, minimal
+    `src/synthgen/domain/errors.py` (`SynthgenError`, `ConfigError`).
+    Tests: `tests/unit/test_config.py` (defaults load, env override, invalid
+    value raises `ConfigError`).
+  - [x] T0.5 `main.py` and `src/synthgen/cli/__init__.py` (Typer root app).
+    Tests: `tests/unit/cli/test_help.py` (`--help` exits 0).
+- **Acceptance:** `make check` passes; `uv run python main.py --help` exits 0.
+
+### M1 Foundations
+
+- **Goal:** typed domain, state store, read-only SQLite access, metadata and
+  seed sources, so `seed` and `tables` work.
+- **Spec sections:** 2, 3.2, 3.6, 5, 8.1, 8.2, 10, 11.
+- **Tasks:**
+  - [x] T1.1 Job and metadata models: `domain/job.py` (`UserRequest`,
+    `JobStatus`, `LoopCounters`, `QuestionAnswer`, `Approval`),
+    `domain/metadata.py` (`TableMeta`, `ColumnMeta`, `Relationship`,
+    `TableSet`), `domain/errors.py` (full typed error set), `domain/ports.py`
+    (per Q2). Tests: `tests/unit/domain/test_job.py`, `test_metadata.py`.
+  - [x] T1.2 LLM output schemas and enums: `domain/intent.py` (`TestIntent`),
+    `domain/semantic.py` (`SemanticMap`), `domain/plan.py` (`ScenarioPlan`,
+    signature assertions), `domain/patch.py` (`SpecPatch`),
+    `domain/summary.py`, `domain/report.py` (`ValidationReport`). Tests:
+    `tests/unit/domain/test_llm_schemas.py` (round trip; generated JSON schema
+    is strict-mode compliant: all fields required, nullable unions,
+    `additionalProperties: false`, enums).
+  - [x] T1.3 State store: `storage/db.py` (schema for `jobs`, `job_artifacts`,
+    `approvals`, `llm_calls`, `profile_cache`), `storage/job_store.py`,
+    `storage/artifact_store.py` (versioned JSON). Tests:
+    `tests/unit/storage/test_job_store.py`, `test_artifact_store.py`.
+  - [x] T1.4 SQLite connector: `connectors/sqlite.py` (read-only URI,
+    `get_columns`, `row_count`, `aggregate` with whitelisted functions and
+    parameterised filters, identifier validation and quoting, seeded
+    hash-modulo `sample` returning `pa.Table`). Tests:
+    `tests/unit/connectors/test_sqlite.py` (write attempt fails, unknown
+    identifier rejected, sample deterministic, full read when small).
+  - [x] T1.5 Metadata provider and dependency graph: `metadata/provider.py`
+    (YAML + `PRAGMA foreign_key_list` fallback), `metadata/graph.py` (add
+    parents, topological sort, self-reference second pass, mutual reference
+    broken at nullable key). Tests: `tests/unit/metadata/test_provider.py`,
+    `test_graph.py`.
+  - [x] T1.6 Seed `finance.db`: `seed/common.py`, `seed/finance.py`
+    (customers, accounts, cards, merchants, transactions; log-normal amounts,
+    Zipf keys, hour/weekday patterns, correlations, nulls, date-order rules,
+    `is_fraud` ≈ 0.5%; ~200,000 transactions). Tests:
+    `tests/unit/seed/test_finance.py` (small scale: counts, FK integrity, fraud
+    rate band, determinism).
+  - [x] T1.7 Seed `orders.db`: `seed/orders.py` (customers, products, orders,
+    order_items, shipments; ~200,000 order_items). Tests:
+    `tests/unit/seed/test_orders.py`.
+  - [x] T1.8 Hand-written metadata: `config/metadata/finance.yaml`,
+    `config/metadata/orders.yaml` (descriptions, sensitivity tags,
+    relationships). Tests: `tests/integration/test_metadata_matches_seed.py`.
+  - [x] T1.9 Use cases and CLI: `app.py` (composition root, `list_tables`,
+    seed use case), `cli/commands.py` (`seed`, `tables`), `cli/render.py`.
+    Tests: `tests/integration/test_cli_seed_tables.py`.
+- **Acceptance:** `python main.py seed` creates `data/finance.db` and
+  `data/orders.db`; `python main.py tables --source finance` (and `orders`)
+  lists tables and relationships; `make check` passes.
+
+### M2 Walking skeleton
+
+- **Goal:** all 15 nodes wired end to end on the stub LLM, with basic
+  profiling, generation and validation, interrupts, checkpoints and resume.
+- **Spec sections:** 3 (all), 4.1, 5, 8.3 (groups A–E core, `LlmSafeProfile`),
+  8.4, 8.5, 8.6 (integrity, row count), 9, 10.
+- **Tasks:**
+  - [ ] T2.1 Profile models and groups A, B: `profiling/models.py` (stats carry
+    source `sql`/`sample`/`derived`), `profiling/table_stats.py`,
+    `profiling/column_stats.py`. Tests: `tests/unit/profiling/test_table_stats.py`,
+    `test_column_stats.py`.
+  - [ ] T2.2 Core of C, D, E: `profiling/numeric.py` (SQL moments,
+    percentiles, 50-bin histogram, 1,001-point quantiles),
+    `profiling/categorical.py` (frequencies, entropy, lengths, masks),
+    `profiling/temporal.py` (min/max/span, hour/weekday/month counts). Tests per
+    module.
+  - [ ] T2.3 Profiler orchestration and cards: `profiling/profiler.py`,
+    `profiling/card.py` (`LlmSafeProfile`), `storage/profile_store.py`
+    (versioned store). Tests: `tests/unit/profiling/test_card.py` (no sensitive
+    source value appears in any card).
+  - [ ] T2.4 Spec models: `spec/models.py` (`GenerationSpec`, `TableSpec`,
+    `ColumnSpec`, `ScenarioSpec`, `SequenceSpec`, `Constraint`, generator
+    tagged union for the generators built in M2). Tests:
+    `tests/unit/spec/test_models.py`.
+  - [ ] T2.5 Baseline, merge, validator (basic): `spec/baseline.py`,
+    `spec/merge.py`, `spec/validator.py` (tables/columns exist, generator suits
+    type, weights and shares, FK order, row limits). Tests per module.
+  - [ ] T2.6 Basic generators and keys: `engine/generators.py` (sequence,
+    uuid, empirical, categorical, datetime, pattern, constant),
+    `engine/keys.py` (PK ranges, uniform FK). Tests:
+    `tests/unit/engine/test_generators.py`, `test_keys.py`.
+  - [ ] T2.7 Scenarios, writer, runner (single chunk): `engine/scenarios.py`
+    (exact allocation, `_scenario`, `_category`, label columns, overlays),
+    `engine/writer.py` (PyArrow zstd, manifest), `engine/runner.py`. Tests:
+    `tests/unit/engine/test_runner.py` (byte-identical rerun, FKs resolve).
+  - [ ] T2.8 Basic validator: `validation/integrity.py` (PK unique, FK
+    resolves, not-null, types), `validation/fidelity.py` (row count),
+    `validation/report.py`. Tests with injected failures.
+  - [ ] T2.9 LLM protocol and stub: `agents/llm/client.py` (`LlmClient`,
+    `Message`, `ToolDef`, `ToolTurn`), `agents/llm/stub.py`,
+    `tests/fixtures/llm/skeleton/`. Tests: `tests/unit/agents/test_stub.py`.
+  - [ ] T2.10 State and routing: `agents/state.py` (`JobState`),
+    `agents/routing.py` (every row of SPEC 3.3, caps from settings). Tests:
+    `tests/unit/agents/test_routing.py` (one case per table row, every cap).
+  - [ ] T2.11 Code nodes: `agents/nodes/{context_builder,profiler,
+    baseline_compiler,spec_validator,dry_run,validator,full_generation,
+    final_validation}.py`. Tests: `tests/unit/agents/nodes/test_code_nodes.py`.
+  - [ ] T2.12 LLM nodes and human gates (minimal prompts):
+    `agents/nodes/{intent_analyst,semantic_mapper,scenario_planner,
+    approval_gate,overlay_writer,repair_analyst,reporter}.py`, clarification
+    and approval interrupts. Tests: `tests/unit/agents/nodes/test_llm_nodes.py`.
+  - [ ] T2.13 Graph and use cases: `agents/graph.py` (SQLite checkpointer,
+    thread ID = job ID), `app.py` (`start_job`, `get_status`, `get_pending`,
+    `answer_clarification`, `decide_plan`, `get_report`, `get_preview`,
+    `profile_tables`). Tests: `tests/integration/test_graph_happy.py`,
+    `test_graph_failures.py` (cap → `needs_review`, reject → `cancelled`,
+    integrity failure → `failed`, clarification round trip).
+  - [ ] T2.14 CLI job commands: `cli/commands.py` (`profile`, `run`, `resume`,
+    `status`, `report`, `preview`), `cli/prompts.py` (approval and question
+    prompts), coverage gate in `Makefile` (A11). Tests:
+    `tests/integration/test_resume.py` (forced stop mid-graph, resume gives the
+    same output hash), `tests/integration/test_cli_run.py`.
+- **Acceptance:** with `LLM_PROVIDER=stub`, `python main.py run --source
+  finance --tables customers,accounts --request "..." --auto-approve` ends
+  `completed` with Parquet, manifest and report; a run stopped mid-graph
+  completes with `python main.py resume <job_id>`; `make check` passes.
+
+### M3 Real agents
+
+- **Goal:** real LLM roles with structured output, three gates, planner tools,
+  primitives and feasibility, producing approved plans and valid overlays.
+- **Spec sections:** 4, 5, 6, 7, 3.3–3.5.
+- **Tasks:**
+  - [ ] T3.1 OpenAI-compatible client: `agents/llm/openai_compatible.py`,
+    `agents/llm/retry.py` (backoff with jitter, `Retry-After`, rate limiter).
+    Tests: `tests/unit/agents/llm/test_openai_compatible.py` (mocked HTTP
+    transport only).
+  - [ ] T3.2 Structured output and gates: `agents/llm/structured.py` (strict
+    schema, JSON-mode fallback, numbered-error re-prompt, cap 3),
+    `storage/llm_call_log.py`. Tests: `test_structured.py` (bad JSON, schema
+    failure, meaning failure, cap → `needs_review`, every call logged, no
+    secret in log).
+  - [ ] T3.3 Prompt templates: `agents/prompts/{intent_analyst,semantic_mapper,
+    scenario_planner,overlay_writer,repair_analyst,reporter}.md`,
+    `agents/prompts/loader.py` (version header, four parts, untrusted blocks).
+    Tests: `tests/unit/agents/test_prompts.py`.
+  - [ ] T3.4 Intent analyst and semantic mapper (meaning gates, clarification,
+    batching above 15 tables). Tests with stub fixtures, including invalid
+    outputs that are re-prompted.
+  - [ ] T3.5 Planner tools: `agents/tools/registry.py`,
+    `agents/tools/profile_tools.py` (seven tools, argument validation,
+    ~2,000-token cap, per-job cache, sensitive masks). Tests:
+    `tests/unit/agents/tools/test_tools.py`.
+  - [ ] T3.6 Scenarios package: `scenarios/primitives.py` (14 primitives →
+    spec constructs), `scenarios/profile_derived.py`,
+    `scenarios/feasibility.py`, `scenarios/templates/loader.py`,
+    `scenarios/templates/card_fraud/*.yaml`. Tests: `tests/unit/scenarios/`.
+  - [ ] T3.7 Scenario planner node: tool turns then one structured call, tool
+    cap (Q5), meaning gate, feasibility attached. Tests: stub tool-call flow.
+  - [ ] T3.8 Overlay writer, repair analyst, reporter: `spec/patch.py` (JSON
+    pointer apply, allow-list, `plan_change_required` → approval), reporter
+    with code-inserted numbers. Tests per node.
+  - [ ] T3.9 Approval UX: plan table (scenario, category, share, feasibility,
+    signature, template or model-proposed), edit shares, remove, reject with
+    feedback, plan expiry after 7 days. Tests: `tests/unit/cli/test_prompts.py`.
+  - [ ] T3.10 Live check and fixture capture: one real request per source;
+    record responses into `tests/fixtures/llm/` (no secrets).
+- **Acceptance:** with `LLM_API_KEY` set, a real request on `finance` and one on
+  `orders` each yield an approved plan and overlays that pass `spec_validator`;
+  `make check` passes on the stub only.
+
+### M4 Full profiler
+
+- **Goal:** complete groups C–I, sensitivity classes, cache and cards.
+- **Spec sections:** 8.3, 6, 4.4 (card size).
+- **Tasks:**
+  - [ ] T4.1 Numeric C complete: `profiling/numeric.py`, `profiling/fitting.py`
+    (AIC + KS ranking, normality tests, KDE modes, outliers, constant step,
+    Benford, Poisson/NB). Tests recover known parameters.
+  - [ ] T4.2 Categorical and text D complete: `profiling/categorical.py`,
+    `profiling/text.py` (Zipf exponent, masks, prefixes/suffixes, Luhn/email
+    validity, case, words). Tests.
+  - [ ] T4.3 Date and time E complete: `profiling/temporal.py` (granularity,
+    `linregress` trend, periodogram, gaps, future/sentinel, weekend and
+    business hours). Tests.
+  - [ ] T4.4 Cross-column F: `profiling/cross_column.py`. Tests (known
+    correlations, FDs, a ≤ b, c = a + b, null co-occurrence).
+  - [ ] T4.5 Cross-table G: `profiling/relationships.py`. Tests.
+  - [ ] T4.6 Behaviour H: `profiling/behaviour.py`. Tests.
+  - [ ] T4.7 Label-stratified I: `profiling/stratified.py`. Tests.
+  - [ ] T4.8 Sensitivity and cache: `profiling/privacy.py` (classes, folding),
+    `storage/profile_cache.py` (schema hash, 7-day age, `--refresh`), full
+    cards. Tests: `tests/unit/profiling/test_privacy.py`,
+    `tests/unit/storage/test_profile_cache.py`.
+  - [ ] T4.9 Recovery test: `tests/integration/test_profile_recovers_seed.py`
+    (log-normal amounts, Zipf keys, hour/weekday mix, fraud rate,
+    correlations, date-order rules).
+- **Acceptance:** `python main.py profile --source finance --tables
+  transactions` prints cards; the recovery test passes; `make check` passes.
+
+### M5 Full engine
+
+- **Goal:** every generator and primitive, copula, sequences, chunking and
+  workers, reproducible at 1,000,000 rows.
+- **Spec sections:** 7.2, 8.4, 8.5, 10 (chunk errors).
+- **Tasks:**
+  - [ ] T5.1 Expression grammar: `spec/expressions.py` (tokenizer, parser,
+    vectorised evaluator; arithmetic, comparisons, if/else, min, max, round,
+    date add/diff, concat, column refs). Tests incl. rejected input.
+  - [ ] T5.2 Remaining generators: `engine/generators/` (distribution,
+    conditional, boundary, derived, pattern with check digit, semantic via
+    seeded Faker pools, text_pool, FK Zipf/weighted/shared group). Tests.
+  - [ ] T5.3 Gaussian copula: `engine/copula.py`; nearest-PSD repair in
+    `spec/validator.py`. Tests: Spearman matrix recovered.
+  - [ ] T5.4 Sequences and state paths: `engine/sequences.py`. Tests.
+  - [ ] T5.5 Constraints, nulls, defects: `engine/constraints.py`,
+    `engine/defects.py` (`_defect`). Tests.
+  - [ ] T5.6 Primitive coverage: `tests/unit/engine/test_primitives.py` (one
+    test per primitive, spec construct → observable effect).
+  - [ ] T5.7 Chunk planning: `engine/planning.py` (sizes, chunks, child chunks
+    by parent key range, `SeedSequence.spawn`, disjoint key ranges, parent
+    attributes from Parquet). Tests.
+  - [ ] T5.8 Workers and chunk recovery: `engine/runner.py` (process pool,
+    retry 3 with same seed, skip chunks in manifest, remove partial files).
+    Tests: `--workers 1` vs `2` byte-identical; resume skips done chunks.
+  - [ ] T5.9 Scale test: `tests/fixtures/specs/finance_1m.json`,
+    `tests/integration/test_engine_scale.py` (`slow`).
+- **Acceptance:** `make test-slow` generates 1,000,000 rows from the
+  hand-written spec and a rerun is byte-identical; `make check` passes.
+
+### M6 Full validator and repair
+
+- **Goal:** all four validation families, the report, and a working repair loop.
+- **Spec sections:** 8.6, 3.3, 5 (patch allow-list), 10.
+- **Tasks:**
+  - [ ] T6.1 Fidelity complete: `validation/fidelity.py` (KS, Wasserstein/IQR,
+    JS category, null diff, Spearman diff, temporal JS, children-per-parent
+    KS, row count; typical rows only; small-sample rule per Q6). Tests.
+  - [ ] T6.2 Integrity complete: formats, constraints, parent date before child
+    date. Tests.
+  - [ ] T6.3 Scenario family: `validation/signature.py`,
+    `validation/scenario.py` (share, presence, signature ≥ 99%, KS ≥ 0.30,
+    near-miss = 0, labels vs manifest). Tests.
+  - [ ] T6.4 Privacy family: `validation/privacy.py` (per Q7). Tests.
+  - [ ] T6.5 Report and failure tracing: `validation/report.py`,
+    `validation_report.json`, overlay tracing for routing (A5). Tests.
+  - [ ] T6.6 Repair loop: repair prompt fed failing report rows; integration
+    tests `tests/integration/test_repair.py` (seeded failure repaired; injected
+    defects caught; cap → `needs_review`).
+- **Acceptance:** typical output passes fidelity; injected defects are caught;
+  a seeded failure is repaired within the cap; coverage ≥ 85% on `domain`,
+  `spec`, `engine`, `validation`; `make check` passes.
+
+### M7 Evaluation and demo
+
+- **Goal:** measurable quality on a golden set, plus docs and a demo.
+- **Spec sections:** 11, 9, 14.
+- **Tasks:**
+  - [ ] T7.1 Golden set: `tests/golden/requests/*.yaml` (15–20 requests, both
+    sources, all five test types, expected intent, must-have scenarios),
+    `tests/golden/roles/{finance,orders}.yaml` (hand-labelled roles).
+  - [ ] T7.2 Eval: `app.run_eval`, `cli` `eval` command, metrics (intent
+    accuracy, role accuracy, plan coverage, first-pass spec validity, repair
+    loops, dry-run pass rate, tokens, latency). Tests on the stub.
+  - [ ] T7.3 Scale runs: golden set on both sources at 100, 100,000 and
+    1,000,000 rows; fix findings.
+  - [ ] T7.4 `README.md` (setup, commands, demo; under two pages), `make demo`.
+  - [ ] T7.5 Definition-of-done audit: scan outputs and `llm_calls` for
+    sensitive source values; `orders.db` plan with no templates installed;
+    interrupt-at-every-node resume test `tests/integration/test_resume_any_node.py`.
+- **Acceptance:** `python main.py eval` runs the golden set on both sources at
+  all three volumes and prints metrics; every item in section 6 holds.
+
+## 5. Risks
+
+| Risk | Likelihood | Impact | Mitigation |
+| --- | --- | --- | --- |
+| SQLite locking and slow I/O on the Windows drive (`/mnt/d`, WSL2 DrvFs); WAL may not work | Medium | High | Paths in settings with env override (`SYNTHGEN_DATA_DIR`, `SYNTHGEN_OUTPUT_DIR`) so data can live on the Linux filesystem; avoid WAL mode |
+| Groq strict structured output or tool calling differs from docs for `gpt-oss-120b` | Medium | High | Check docs at M3; JSON-mode fallback with Pydantic parse and re-prompt (SPEC 4.2) |
+| Groq rate limits and cost during golden runs | High | Medium | Client-side rate limiter, backoff, per-job tool-result cache, stub for all tests |
+| LangGraph 1.x API (interrupts, SQLite checkpointer) differs from memory | Medium | Medium | Read installed docs before use; pin versions in `uv.lock` |
+| `mypy --strict` with SciPy/pandas/Faker stubs | High | Low | `pandas-stubs`; narrow per-module overrides with a comment; typed wrappers at the boundary |
+| Byte-identical Parquet broken by worker order, float summation order or library metadata | Medium | High | Per-chunk streams via `SeedSequence.spawn`, deterministic chunk naming, fixed writer options, determinism test in CI |
+| 1,000,000-row runs exceed 7 GB RAM or take too long | Medium | Medium | Chunking (250,000 rows), streamed Parquet writes, sampled validation where the spec allows |
+| Statistical checks are noisy at small volumes | High | Medium | Q6 rule; effect-size thresholds from config |
+| LLM proposes infeasible or vague scenarios | Medium | Medium | Feasibility check, meaning gate, profile-quantified levers, approval gate |
+| Sensitive values leak into prompts or output | Low | High | Only `LlmSafeProfile` reaches agents; property tests on cards; privacy family; DoD audit scan |
+| Scope creep beyond POC | Medium | Medium | Out-of-scope list in `CLAUDE.md`; ask before adding anything |
+
+## 6. Definition of done
+
+- `make check` passes: format, lint, strict typing, all tests.
+- Coverage is at least 85% on `domain`, `spec`, `engine`, `validation`.
+- The dependency rule in `CLAUDE.md` holds; only `agents` imports LangGraph.
+- A job can be interrupted at any node and resumed to the same result.
+- Same seed, spec and profile version give byte-identical Parquet.
+- No source value from a sensitive column appears in any output or LLM prompt.
+- The system produces a sensible plan for a request on `orders.db` with no
+  template installed.
+- `README.md` explains setup, the commands and the demo in under two pages.
+
+## 7. Progress log
+
+- 2026-11-10 M0 Scaffold done: `make check` passes (ruff format, ruff, mypy
+  strict, 49 tests); `main.py --help` exits 0. Not committed (user choice).
+- 2026-11-10 M1 Foundations done: `make check` passes (228 tests); `seed`
+  builds finance.db (200,000 transactions, 0.5% fraud) and orders.db (200,030
+  order lines) in ~20 s; `tables` lists both with relationships, including
+  the PRAGMA-derived `order_items.product_id`. Not committed (user choice).
