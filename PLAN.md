@@ -253,11 +253,11 @@ confirmed or corrected it moves to section 3.
     `profiling/card.py` (`LlmSafeProfile`), `storage/profile_store.py`
     (versioned store). Tests: `tests/unit/profiling/test_card.py` (no sensitive
     source value appears in any card).
-  - [ ] T2.4 Spec models: `spec/models.py` (`GenerationSpec`, `TableSpec`,
+  - [x] T2.4 Spec models: `spec/models.py` (`GenerationSpec`, `TableSpec`,
     `ColumnSpec`, `ScenarioSpec`, `SequenceSpec`, `Constraint`, generator
     tagged union for the generators built in M2). Tests:
     `tests/unit/spec/test_models.py`.
-  - [ ] T2.5 Baseline, merge, validator (basic): `spec/baseline.py`,
+  - [x] T2.5 Baseline, merge, validator (basic): `spec/baseline.py`,
     `spec/merge.py`, `spec/validator.py` (tables/columns exist, generator suits
     type, weights and shares, FK order, row limits). Tests per module.
   - [ ] T2.6 Basic generators and keys: `engine/generators.py` (sequence,

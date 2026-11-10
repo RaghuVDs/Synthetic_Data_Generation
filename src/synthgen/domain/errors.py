@@ -35,3 +35,11 @@ class NotFoundError(SynthgenError):
 
 class SeedError(SynthgenError):
     """The fake source databases could not be built."""
+
+
+class SpecCompilationError(SynthgenError):
+    """A baseline spec cannot be compiled from the profiles; a code or profile defect."""
+
+
+class EngineError(SynthgenError):
+    """The engine cannot generate data that satisfies the spec."""
