@@ -271,10 +271,10 @@ confirmed or corrected it moves to section 3.
   - [x] T2.8 Basic validator: `validation/integrity.py` (PK unique, FK
     resolves, not-null, types), `validation/fidelity.py` (row count),
     `validation/report.py`. Tests with injected failures.
-  - [ ] T2.9 LLM protocol and stub: `agents/llm/client.py` (`LlmClient`,
+  - [x] T2.9 LLM protocol and stub: `agents/llm/client.py` (`LlmClient`,
     `Message`, `ToolDef`, `ToolTurn`), `agents/llm/stub.py`,
     `tests/fixtures/llm/skeleton/`. Tests: `tests/unit/agents/test_stub.py`.
-  - [ ] T2.10 State and routing: `agents/state.py` (`JobState`),
+  - [x] T2.10 State and routing: `agents/state.py` (`JobState`),
     `agents/routing.py` (every row of SPEC 3.3, caps from settings). Tests:
     `tests/unit/agents/test_routing.py` (one case per table row, every cap).
   - [ ] T2.11 Code nodes: `agents/nodes/{context_builder,profiler,
