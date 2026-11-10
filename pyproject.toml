@@ -1,0 +1,66 @@
+[project]
+name = "synthgen"
+version = "0.1.0"
+description = "Agentic synthetic data generator for SQLite sources (POC)."
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.9",
+    "python-dotenv>=1.0",
+    "pyyaml>=6.0",
+    "typer>=0.15",
+    "rich>=13.9",
+    "numpy>=2.4.6",
+    "pyarrow>=26.0.1",
+    "faker>=40.52.0",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.13",
+    "pyarrow-stubs>=20.0.0.20260819",
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+    "types-pyyaml>=6.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/synthgen"]
+
+[tool.uv]
+link-mode = "copy"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF", "PL", "S", "D"]
+ignore = [
+    "D203",    # conflicts with D211
+    "D213",    # conflicts with D212
+    "D401",    # docstrings describe what and why, not always in imperative mood
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "D", "PLR2004"]
+# Identifiers are validated against the schema and quoted; values are bound parameters.
+"src/synthgen/connectors/sqlite.py" = ["S608"]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+files = ["src", "tests", "main.py"]
+mypy_path = "src"
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --import-mode=importlib -m 'not slow'"
+markers = ["slow: long-running volume tests, run with `make test-slow`"]
