@@ -50,6 +50,7 @@ class ArtifactKind(StrEnum):
     SEMANTIC_MAP = "semantic_map"
     PLAN = "plan"
     SPEC = "spec"
+    BASELINE_SPEC = "baseline_spec"
     DRY_RUN_REPORT = "dry_run_report"
     FINAL_REPORT = "final_report"
     SUMMARY = "summary"

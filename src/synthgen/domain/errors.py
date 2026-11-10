@@ -51,3 +51,7 @@ class LlmError(SynthgenError):
 
 class LlmOutputError(LlmError):
     """The LLM's answer failed its gates after every allowed re-prompt; the job needs review."""
+
+
+class PatchError(SynthgenError):
+    """A spec patch points at a path that does not exist or yields an invalid spec."""

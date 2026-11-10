@@ -18,6 +18,7 @@ llm:
 
 profiling:
   sample_size: 200000
+  sample_seed: 0                      # profiles do not depend on the generation seed
   cache_max_age_days: 7
   histogram_bins: 50
   quantile_points: 1001
