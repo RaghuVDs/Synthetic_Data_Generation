@@ -117,6 +117,13 @@ class ValidationSettings(_Group):
     privacy_identifier_min_ratio: float = Ratio
 
 
+class SeedSettings(_Group):
+    """Fixed seed and size multiplier for the fake source databases (SPEC 11)."""
+
+    random_seed: int = Field(ge=0)
+    scale: float = Field(gt=0.0, le=10.0)
+
+
 class PathSettings(_Group):
     """Locations of source data, state databases, metadata and output."""
 
@@ -145,6 +152,7 @@ class Settings(_Group):
     generation: GenerationSettings
     agent: AgentSettings
     validation: ValidationSettings
+    seed: SeedSettings
     paths: PathSettings
 
 

@@ -66,6 +66,10 @@ validation:
   min_fidelity_rows: 1000             # PLAN Q6: smaller typical samples skip fidelity
   privacy_identifier_min_ratio: 0.5   # PLAN Q7: exact-match check on identifier-like columns
 
+seed:
+  random_seed: 20261110               # fixed seed for the fake source databases
+  scale: 1.0                          # row-count multiplier; tests use a small fraction
+
 paths:
   data_dir: data
   output_dir: output
