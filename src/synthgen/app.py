@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import re
 import uuid
-from collections.abc import Callable, Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from collections.abc import Mapping, Sequence
+from datetime import timedelta
 from functools import cached_property
 from pathlib import Path
 
@@ -17,33 +16,34 @@ from synthgen.agents.llm.client import LlmClient
 from synthgen.agents.llm.openai_compatible import OpenAiCompatibleClient
 from synthgen.agents.llm.structured import StructuredLlm
 from synthgen.agents.llm.stub import StubClient
-from synthgen.agents.nodes.deps import NodeDeps, Source
+from synthgen.agents.nodes.deps import NodeDeps
 from synthgen.agents.tools.cache import ToolResultCache
 from synthgen.config import Settings, load_settings, read_environment
-from synthgen.connectors.sqlite import SqliteConnector
 from synthgen.domain.base import StrictModel
-from synthgen.domain.errors import MetadataError, NotFoundError, SynthgenError
-from synthgen.domain.job import IDENTIFIER_PATTERN, Approval, ArtifactKind, JobRecord, UserRequest
-from synthgen.domain.metadata import SourceOverview, TableSummary
+from synthgen.domain.errors import NotFoundError, SynthgenError
+from synthgen.domain.job import (
+    Approval,
+    ArtifactKind,
+    JobRecord,
+    JobStatus,
+    UserRequest,
+)
+from synthgen.domain.metadata import SourceOverview
 from synthgen.domain.pending import Pending, PendingApproval, PendingClarification
 from synthgen.domain.report import ValidationReport
 from synthgen.domain.summary import Summary
 from synthgen.engine.writer import MANIFEST_FILE, Manifest, read_manifest, read_table
-from synthgen.metadata.provider import SourceDoc, YamlMetadataProvider, load_source_doc
 from synthgen.profiling.cache import ProfileRequest, profile_version
 from synthgen.profiling.card import LlmSafeProfile, build_card
 from synthgen.profiling.models import TableProfile
 from synthgen.scenarios.templates.loader import BUILT_IN, TemplateLibrary
-from synthgen.seed.finance import build_finance
-from synthgen.seed.orders import build_orders
+from synthgen.sources import SourceCatalog
 from synthgen.storage.artifact_store import ArtifactStore
 from synthgen.storage.db import Clock, StateDatabase, utc_now
 from synthgen.storage.job_store import JobStore
 from synthgen.storage.llm_call_log import LlmCallLog
 from synthgen.storage.profile_store import ProfileStore
 
-SeedBuilder = Callable[[Path, int, float], dict[str, int]]
-SEED_BUILDERS: dict[str, SeedBuilder] = {"finance": build_finance, "orders": build_orders}
 JOB_ID_CHARS = 12
 
 
@@ -97,6 +97,10 @@ class Application:
         self.close()
 
     @cached_property
+    def _sources(self) -> SourceCatalog:
+        return SourceCatalog(self._settings.paths)
+
+    @cached_property
     def _db(self) -> StateDatabase:
         return StateDatabase(self._settings.paths.state_db_path)
 
@@ -130,7 +134,7 @@ class Application:
             jobs=self._jobs,
             artifacts=self._artifacts,
             profiles=self._profiles,
-            open_source=self._open_source,
+            open_source=self._sources.open,
             clock=self._clock,
             templates=TemplateLibrary(self._settings.paths.templates_dir or BUILT_IN),
             tool_cache=ToolResultCache(),
@@ -139,36 +143,17 @@ class Application:
 
     def seed(self) -> dict[str, dict[str, int]]:
         """Build every fake source database; return row counts per source and table."""
-        cfg = self._settings.seed
-        return {
-            name: build(self._source_path(name), cfg.random_seed, cfg.scale)
-            for name, build in SEED_BUILDERS.items()
-        }
+        return self._sources.seed(self._settings.seed)
 
     def list_tables(self, source: str) -> SourceOverview:
         """Tables of a source with row counts, plus every relationship."""
-        with self._open_source(source) as src:
-            doc_description = self._source_doc(source).description
-            return SourceOverview(
-                source=source,
-                description=doc_description,
-                tables=tuple(
-                    TableSummary(
-                        name=t.name,
-                        description=t.description,
-                        row_count=src.connector.row_count(t.name),
-                        column_count=len(t.columns),
-                    )
-                    for t in src.metadata.tables()
-                ),
-                relationships=tuple(src.metadata.relationships()),
-            )
+        return self._sources.overview(source)
 
     def profile_tables(
         self, source: str, tables: Sequence[str], refresh: bool
     ) -> list[LlmSafeProfile]:
         """Profile (or reuse cached profiles of) the tables and return their cards."""
-        with self._open_source(source) as src:
+        with self._sources.open(source) as src:
             rels = src.metadata.relationships()
             cards = []
             for name in tables:
@@ -189,11 +174,12 @@ class Application:
 
     def create_job(self, request: UserRequest) -> JobRecord:
         """Register a job for an existing source without running it."""
-        self._require_source(request.source)
+        self._sources.require(request.source)
         return self._jobs.create(uuid.uuid4().hex[:JOB_ID_CHARS], request)
 
     def run_job(self, job_id: str) -> JobView:
         """Run a job from its start, or from its last checkpoint after an interruption."""
+        self._expire_stale_plan(job_id)
         job = self.get_status(job_id)
         if job.status.is_terminal or self.get_pending(job_id) is not None:
             return self.view(job_id)
@@ -204,8 +190,23 @@ class Application:
         return self.view(job_id)
 
     def view(self, job_id: str) -> JobView:
-        """The job's record and pending question or plan."""
-        return JobView(job=self.get_status(job_id), pending=self.get_pending(job_id))
+        """The job's record and pending question or plan; a stale plan expires first."""
+        self._expire_stale_plan(job_id)
+        job = self.get_status(job_id)
+        return JobView(
+            job=job, pending=None if job.status.is_terminal else self.get_pending(job_id)
+        )
+
+    def _expire_stale_plan(self, job_id: str) -> None:
+        """Cancel a job whose plan has waited longer than `plan_expiry_days` (SPEC 10)."""
+        pending = self.get_pending(job_id)
+        if not isinstance(pending, PendingApproval) or self.get_status(job_id).status.is_terminal:
+            return
+        created = self._artifacts.created_at(job_id, ArtifactKind.PLAN, pending.plan_version)
+        days = self._settings.agent.plan_expiry_days
+        if self._clock() - created > timedelta(days=days):
+            reason = f"plan expired after {days} days without a decision"
+            self._jobs.set_status(job_id, JobStatus.CANCELLED, reason)
 
     def get_status(self, job_id: str) -> JobRecord:
         """The job's current record."""
@@ -224,6 +225,8 @@ class Application:
 
     def decide_plan(self, job_id: str, approval: Approval) -> JobView:
         """Approve, edit or reject the pending plan and continue."""
+        if self.view(job_id).job.status.is_terminal:
+            raise SynthgenError(f"job {job_id} has ended: {self.get_status(job_id).error}")
         if not isinstance(self.get_pending(job_id), PendingApproval):
             raise SynthgenError(f"job {job_id} is not waiting for a plan decision")
         self._runner.resume(job_id, approval.model_dump(mode="json"))
@@ -260,41 +263,6 @@ class Application:
 
     def _job_dir(self, job_id: str) -> Path:
         return self._settings.paths.output_dir / "jobs" / job_id
-
-    def _source_path(self, source: str) -> Path:
-        if not re.fullmatch(IDENTIFIER_PATTERN, source):
-            raise NotFoundError(f"invalid source name {source!r}")
-        return self._settings.paths.data_dir / f"{source}.db"
-
-    def _require_source(self, source: str) -> Path:
-        path = self._source_path(source)
-        if not path.is_file():
-            raise NotFoundError(
-                f"source {source!r} not found at {path}; run `python main.py seed` first"
-            )
-        return path
-
-    @contextmanager
-    def _open_source(self, source: str) -> Iterator[Source]:
-        path = self._require_source(source)
-        connector = SqliteConnector(path)
-        try:
-            yield Source(
-                connector=connector,
-                metadata=YamlMetadataProvider(self._source_doc(source), connector),
-            )
-        finally:
-            connector.close()
-
-    def _source_doc(self, source: str) -> SourceDoc:
-        """The source's metadata YAML; without one, relationships come from the database."""
-        path = self._settings.paths.metadata_dir / f"{source}.yaml"
-        if not path.is_file():
-            return SourceDoc(source=source)
-        doc = load_source_doc(path)
-        if doc.source != source:
-            raise MetadataError(f"{path} describes source {doc.source!r}, expected {source!r}")
-        return doc
 
 
 def make_llm(settings: Settings, http: httpx.Client) -> LlmClient:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Protocol
 
 import pyarrow as pa
@@ -58,3 +59,11 @@ class MetadataProvider(Protocol):
     def relationships(self) -> list[Relationship]:
         """Every relationship, declared in metadata or found through the database."""
         ...
+
+
+@dataclass(frozen=True)
+class Source:
+    """An open source: its read-only connector and merged metadata."""
+
+    connector: Connector
+    metadata: MetadataProvider

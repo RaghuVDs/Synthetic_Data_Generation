@@ -212,6 +212,17 @@ confirmed or corrected it moves to section 3.
   (`profiling <- spec <- scenarios <- engine <- validation`). The feasibility
   check reads which constructs the spec models offer; `spec` never needs
   `scenarios`. The architecture test enforces the new order.
+- 2026-11-10 (M3): Not-expressible scenarios stay in the plan and are shown at
+  approval with a reason and the nearest alternative; the overlay writer only
+  receives expressible or partial scenarios, and the reporter adds a caveat for
+  each skipped one. Feasibility reads available constructs from the spec
+  models, so M5 additions become expressible without code changes here.
+- 2026-11-10 (M3): Plan expiry is enforced when a job is viewed, resumed or
+  decided: a plan older than `plan_expiry_days` cancels the job with the reason
+  "plan expired after 7 days without a decision".
+- 2026-11-10 (M3): Source handling moved from `app.py` to `sources.py`
+  (`SourceCatalog`, ranked with `agents`) to keep `app.py` under 300 lines;
+  `Source` moved to `domain/ports.py`.
 
 ## 4. Milestones
 
@@ -391,10 +402,10 @@ confirmed or corrected it moves to section 3.
     `scenarios/templates/card_fraud/*.yaml`. Tests: `tests/unit/scenarios/`.
   - [x] T3.7 Scenario planner node: tool turns then one structured call, tool
     cap (Q5), meaning gate, feasibility attached. Tests: stub tool-call flow.
-  - [ ] T3.8 Overlay writer, repair analyst, reporter: `spec/patch.py` (JSON
+  - [x] T3.8 Overlay writer, repair analyst, reporter: `spec/patch.py` (JSON
     pointer apply, allow-list, `plan_change_required` → approval), reporter
     with code-inserted numbers. Tests per node.
-  - [ ] T3.9 Approval UX: plan table (scenario, category, share, feasibility,
+  - [x] T3.9 Approval UX: plan table (scenario, category, share, feasibility,
     signature, template or model-proposed), edit shares, remove, reject with
     feedback, plan expiry after 7 days. Tests: `tests/unit/cli/test_prompts.py`.
   - [ ] T3.10 Live check and fixture capture: one real request per source;

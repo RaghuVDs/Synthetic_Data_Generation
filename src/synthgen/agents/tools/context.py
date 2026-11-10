@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from synthgen.agents.nodes.deps import Source
 from synthgen.config import ProfilingSettings
 from synthgen.domain.errors import ToolArgumentError
 from synthgen.domain.metadata import Sensitivity
+from synthgen.domain.ports import Source
 from synthgen.profiling.models import ColumnProfile, TableProfile
 from synthgen.scenarios.templates.loader import TemplateLibrary
 

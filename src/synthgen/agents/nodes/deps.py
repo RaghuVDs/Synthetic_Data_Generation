@@ -15,7 +15,7 @@ from synthgen.agents.llm.structured import StructuredLlm
 from synthgen.agents.tools.cache import ToolResultCache
 from synthgen.config import Settings
 from synthgen.domain.job import Approval, ArtifactKind, JobRecord, JobStatus
-from synthgen.domain.ports import Connector, MetadataProvider
+from synthgen.domain.ports import Source
 from synthgen.scenarios.templates.loader import TemplateLibrary
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
@@ -80,14 +80,6 @@ class Profiles(Protocol):
     def latest(self, source: str, table: str, schema_hash: str) -> CachedProfileRecord | None:
         """The newest profile for this schema, or None on a cache miss."""
         ...
-
-
-@dataclass(frozen=True)
-class Source:
-    """An open source: its read-only connector and merged metadata."""
-
-    connector: Connector
-    metadata: MetadataProvider
 
 
 @dataclass(frozen=True)

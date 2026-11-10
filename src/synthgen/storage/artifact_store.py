@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TypeVar
 
 from pydantic import BaseModel
@@ -67,3 +68,15 @@ class ArtifactStore:
                 (job_id, kind),
             ).fetchall()
         return [int(r["version"]) for r in rows]
+
+    def created_at(self, job_id: str, kind: ArtifactKind, version: int) -> datetime:
+        """When a version was stored; raises NotFoundError when absent."""
+        with self._db.connect() as conn:
+            row = conn.execute(
+                "SELECT created_at FROM job_artifacts"
+                " WHERE job_id = ? AND kind = ? AND version = ?",
+                (job_id, kind, version),
+            ).fetchone()
+        if row is None:
+            raise NotFoundError(f"{kind} version {version} not found for job {job_id}")
+        return datetime.fromisoformat(row["created_at"])

@@ -26,6 +26,7 @@ RANKS: dict[str, int] = {
     "engine": 5,
     "validation": 6,
     "agents": 7,
+    "sources": 7,
     "app": 8,
     "cli": 9,
 }
