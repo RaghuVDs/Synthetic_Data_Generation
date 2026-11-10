@@ -31,6 +31,8 @@ HASH_MODULUS = 2_147_483_647
 """Prime modulus (2**31 - 1) of the rowid hash; products stay inside 64-bit integers."""
 HASH_MULTIPLIER = 1_327_217_885
 """About 0.618 x modulus: a golden-ratio step spreads selected rowids evenly over the table."""
+PAGE_CACHE_KIB = 262_144
+"""SQLite page cache per connection (256 MiB), enough to hold a seed-size table in memory."""
 SAMPLE_OVERDRAW = 1.2
 """Draw this much more than requested through the hash filter, then trim to exactly n."""
 
@@ -52,27 +54,39 @@ def quote(identifier: str) -> str:
 
 
 class SqliteConnector:
-    """Reads one SQLite source file. Opens a fresh read-only connection per call."""
+    """Reads one SQLite source file through one read-only connection, kept open until close().
+
+    Keeping the connection keeps SQLite's page cache, so repeated scans of a table during
+    profiling read the file once instead of once per query.
+    """
 
     def __init__(self, path: Path) -> None:
         """Remember the file; fail early when it does not exist."""
         if not path.is_file():
             raise ConnectorError(f"source database {path} does not exist")
         self._uri = f"{path.resolve().as_uri()}?mode=ro"
+        self._conn: sqlite3.Connection | None = None
+        self._tables: list[str] | None = None
         self._columns: dict[str, list[ColumnInfo]] = {}
+
+    def close(self) -> None:
+        """Close the connection; a later call opens a new one."""
+        if self._conn is not None:
+            self._conn.close()
+            self._conn = None
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
+        if self._conn is None:
+            try:
+                self._conn = sqlite3.connect(self._uri, uri=True, check_same_thread=False)
+                self._conn.execute(f"PRAGMA cache_size = -{PAGE_CACHE_KIB}")
+            except sqlite3.Error as exc:
+                raise ConnectorError(f"cannot open {self._uri}: {exc}") from exc
         try:
-            conn = sqlite3.connect(self._uri, uri=True)
-        except sqlite3.Error as exc:
-            raise ConnectorError(f"cannot open {self._uri}: {exc}") from exc
-        try:
-            yield conn
+            yield self._conn
         except sqlite3.Error as exc:
             raise ConnectorError(f"query failed on {self._uri}: {exc}") from exc
-        finally:
-            conn.close()
 
     def _query(self, sql: str, params: Sequence[SqlParam] = ()) -> list[tuple[Any, ...]]:
         with self._connect() as conn:
@@ -80,11 +94,13 @@ class SqliteConnector:
 
     def list_tables(self) -> list[str]:
         """User tables in the source, sorted by name."""
-        rows = self._query(
-            "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
-            " ORDER BY name"
-        )
-        return [str(r[0]) for r in rows]
+        if self._tables is None:
+            rows = self._query(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+                " ORDER BY name"
+            )
+            self._tables = [str(r[0]) for r in rows]
+        return list(self._tables)
 
     def _check_table(self, table: str) -> None:
         if table not in self.list_tables():

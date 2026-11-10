@@ -240,16 +240,16 @@ confirmed or corrected it moves to section 3.
 - **Spec sections:** 3 (all), 4.1, 5, 8.3 (groups A–E core, `LlmSafeProfile`),
   8.4, 8.5, 8.6 (integrity, row count), 9, 10.
 - **Tasks:**
-  - [ ] T2.1 Profile models and groups A, B: `profiling/models.py` (stats carry
+  - [x] T2.1 Profile models and groups A, B: `profiling/models.py` (stats carry
     source `sql`/`sample`/`derived`), `profiling/table_stats.py`,
     `profiling/column_stats.py`. Tests: `tests/unit/profiling/test_table_stats.py`,
     `test_column_stats.py`.
-  - [ ] T2.2 Core of C, D, E: `profiling/numeric.py` (SQL moments,
+  - [x] T2.2 Core of C, D, E: `profiling/numeric.py` (SQL moments,
     percentiles, 50-bin histogram, 1,001-point quantiles),
     `profiling/categorical.py` (frequencies, entropy, lengths, masks),
     `profiling/temporal.py` (min/max/span, hour/weekday/month counts). Tests per
     module.
-  - [ ] T2.3 Profiler orchestration and cards: `profiling/profiler.py`,
+  - [x] T2.3 Profiler orchestration and cards: `profiling/profiler.py`,
     `profiling/card.py` (`LlmSafeProfile`), `storage/profile_store.py`
     (versioned store). Tests: `tests/unit/profiling/test_card.py` (no sensitive
     source value appears in any card).

@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS profile_cache (
     profile_version TEXT NOT NULL,
     content_json TEXT NOT NULL,
     created_at TEXT NOT NULL,
-    PRIMARY KEY (source, table_name, schema_hash)
+    PRIMARY KEY (source, table_name, profile_version)
 );
 """
 
