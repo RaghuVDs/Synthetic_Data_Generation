@@ -8,7 +8,7 @@ import pytest
 
 from synthgen.config import ProfilingSettings, load_settings
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 @pytest.fixture(scope="session")
