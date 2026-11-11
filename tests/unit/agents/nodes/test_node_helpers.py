@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import re
 from datetime import UTC, datetime
 from typing import Any
@@ -10,10 +9,11 @@ from pydantic import BaseModel
 
 from synthgen.agents.nodes.approval_gate import apply_edits
 from synthgen.agents.nodes.baseline_compiler import row_targets
-from synthgen.agents.nodes.overlay_writer import approved_shares, column_list
+from synthgen.agents.nodes.overlay_writer import approved_shares, feasibility_notes
 from synthgen.agents.nodes.reporter import fill, metrics
 from synthgen.agents.prompts.loader import data_block, load_template, render
 from synthgen.agents.state import initial_state
+from synthgen.domain.feasibility import FeasibilityResult, FeasibilityStatus
 from synthgen.domain.intent import TestIntent
 from synthgen.domain.job import Approval, ApprovalDecision, RowTarget, ShareEdit, UserRequest
 from synthgen.domain.metadata import Relationship, RelationshipOrigin, TableSet
@@ -24,7 +24,7 @@ from synthgen.domain.summary import Summary
 from synthgen.engine.writer import Manifest, ScenarioCount, TableManifest
 from synthgen.spec.models import OverlaySet
 
-from ...engine.test_runner import BIG, make_spec
+from ...engine.test_runner import BIG
 
 NOW = datetime(2026, 11, 10, tzinfo=UTC)
 ROLES = [
@@ -96,11 +96,31 @@ def test_overlays_take_the_approved_share() -> None:
     assert untouched.share == BIG["share"]
 
 
-def test_column_list_carries_no_profile_values() -> None:
-    columns = json.loads(column_list(make_spec()))
-    assert {"table": "customers", "column": "tier", "type": "text", "sensitive": False} in columns
-    assert all(set(c) == {"table", "column", "type", "sensitive"} for c in columns)
-    assert '"a"' not in column_list(make_spec())
+def test_feasibility_notes_list_partial_scenarios_only() -> None:
+    state = initial_state("j", UserRequest(source="s", tables=("orders",), text="x"))
+    state["feasibility"] = [
+        FeasibilityResult(
+            scenario="a",
+            status=FeasibilityStatus.PARTIAL,
+            covered=["value_shift on t.x"],
+            not_covered=["sequence on t.when"],
+            reason="needs a SequenceSpec",
+            alternative=None,
+        ),
+        FeasibilityResult(
+            scenario="b",
+            status=FeasibilityStatus.EXPRESSIBLE,
+            covered=[],
+            not_covered=[],
+            reason=None,
+            alternative=None,
+        ),
+    ]
+    assert (
+        feasibility_notes(state, ["a", "b"])
+        == "- a: leave out sequence on t.when (needs a SequenceSpec)"
+    )
+    assert feasibility_notes(state, ["b"]) == "none"
 
 
 def _manifest() -> Manifest:

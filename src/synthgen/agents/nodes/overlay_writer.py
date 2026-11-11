@@ -2,30 +2,26 @@
 
 from __future__ import annotations
 
-import json
-
 from synthgen.agents.meaning import check_overlays
 from synthgen.agents.nodes.common import as_json, ask, cards_text, job_columns
 from synthgen.agents.nodes.deps import NodeDeps, StateUpdate
 from synthgen.agents.state import JobState
 from synthgen.domain.errors import SynthgenError
 from synthgen.domain.feasibility import FeasibilityStatus
-from synthgen.domain.job import ArtifactKind
 from synthgen.domain.plan import ScenarioPlan
-from synthgen.spec.models import GenerationSpec, OverlaySet, ScenarioSpec
+from synthgen.spec.models import OverlaySet, ScenarioSpec
 
 ROLE = "overlay_writer"
 
 
-def column_list(baseline: GenerationSpec) -> str:
-    """Table, column, type and sensitivity only: no profile-derived values reach the model."""
-    return json.dumps(
-        [
-            {"table": t.name, "column": c.name, "type": c.type, "sensitive": c.sensitive}
-            for t in baseline.tables
-            for c in t.columns
-        ]
-    )
+def feasibility_notes(state: JobState, names: list[str]) -> str:
+    """What each partly expressible scenario cannot do, so the writer leaves it out."""
+    notes = [
+        f"- {f.scenario}: leave out {', '.join(f.not_covered)} ({f.reason})"
+        for f in state["feasibility"]
+        if f.scenario in names and f.status is FeasibilityStatus.PARTIAL
+    ]
+    return "\n".join(notes) or "none"
 
 
 def run(state: JobState, deps: NodeDeps) -> StateUpdate:
@@ -33,8 +29,6 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
     plan = state["plan"]
     if plan is None:
         raise SynthgenError("overlay writer ran without an approved plan")
-    job_id = state["job_id"]
-    baseline = deps.artifacts.get(job_id, ArtifactKind.BASELINE_SPEC, GenerationSpec)
     counters = state["counters"]
     if state["spec_errors"]:
         counters = counters.model_copy(update={"spec_repair": counters.spec_repair + 1})
@@ -47,7 +41,7 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
         ROLE,
         {
             "APPROVED_PLAN": as_json(plan),
-            "COLUMNS": column_list(baseline),
+            "NOT_EXPRESSIBLE_PARTS": feasibility_notes(state, expected),
             "PROFILE_CARDS": cards_text(state, deps, state["semantic_map"]),
             "SPEC_ERRORS": as_json(state["spec_errors"]) if state["spec_errors"] else "none",
         },
