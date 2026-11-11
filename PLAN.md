@@ -223,6 +223,23 @@ confirmed or corrected it moves to section 3.
 - 2026-11-10 (M3): Source handling moved from `app.py` to `sources.py`
   (`SourceCatalog`, ranked with `agents`) to keep `app.py` under 300 lines;
   `Source` moved to `domain/ports.py`.
+- 2026-11-11 (M3): Live check against Groq's free tier (8,000 tokens per minute)
+  completed on `finance` end to end and planned sensibly on `orders` with no
+  templates, but re-prompts do not fit that budget reliably. The user will run
+  the live check on the company's Llama model (OpenAI-compatible, no token
+  limit). T3.10 is deferred to that run; Groq findings kept as fixes (schema
+  rejections re-prompted, unambiguous unions, compact cards, bounded retries).
+- 2026-11-11 (M3): New requirement from the user: tables of up to 3,000
+  columns. Python's bundled SQLite is compiled with SQLITE_MAX_COLUMN=2000 and
+  cannot open wider tables; prebuilt pysqlite3-binary and apsw wheels have the
+  same cap. Decision (user): an optional SQLite build with
+  SQLITE_MAX_COLUMN=32767, built by `make sqlite-wide` (pysqlite3 0.5.4 static
+  build on the SQLite 3.50.4 amalgamation, sources pinned by SHA-256, compiled
+  with the `ziglang` pip package so no system compiler or sudo is needed). The
+  connector uses it when installed and falls back to `sqlite3` otherwise. The
+  rest of the system works in column batches so width is never bounded by one
+  SQL statement or one prompt.
+- 2026-11-11: Pacing (user): stop for review after each milestone.
 
 ## 4. Milestones
 
@@ -409,7 +426,23 @@ confirmed or corrected it moves to section 3.
     signature, template or model-proposed), edit shares, remove, reject with
     feedback, plan expiry after 7 days. Tests: `tests/unit/cli/test_prompts.py`.
   - [ ] T3.10 Live check and fixture capture: one real request per source;
-    record responses into `tests/fixtures/llm/` (no secrets).
+    record responses into `tests/fixtures/llm/` (no secrets). DEFERRED to the
+    user's run on the company Llama model (see Decisions 2026-11-11).
+  - [x] T3.11 Wide SQLite driver: `tools/build_wide_sqlite.sh`, `make
+    sqlite-wide`, driver selection in `connectors/`, a clear error when a table
+    exceeds the active driver's column limit. Tests:
+    `tests/unit/connectors/test_wide.py` (3,000 columns, skipped without the
+    wide build; stdlib limit error).
+  - [ ] T3.12 Wide-table profiling: aggregates and samples in column batches
+    (`profiling.max_select_columns`). Tests: 1,500 columns on stdlib SQLite,
+    3,000 columns on the wide build.
+  - [ ] T3.13 Wide-table prompts: mapper batches columns within a table
+    (`profiling.mapper_batch_columns`); planner, overlay writer and repair
+    analyst receive role-bearing and lever columns only once a table exceeds
+    `profiling.card_max_columns`. Tests with a 3,000-column card.
+  - [ ] T3.14 Llama-compatible output: `llm.output_mode` (strict
+    `json_schema`, `json_object`, or prompt-only JSON) and a documented
+    no-tools mode (`planner_tool_calls = 0`). Tests on the mocked transport.
 - **Acceptance:** with `LLM_API_KEY` set, a real request on `finance` and one on
   `orders` each yield an approved plan and overlays that pass `spec_validator`;
   `make check` passes on the stub only.
@@ -429,7 +462,9 @@ confirmed or corrected it moves to section 3.
     `linregress` trend, periodogram, gaps, future/sentinel, weekend and
     business hours). Tests.
   - [ ] T4.4 Cross-column F: `profiling/cross_column.py`. Tests (known
-    correlations, FDs, a ≤ b, c = a + b, null co-occurrence).
+    correlations, FDs, a ≤ b, c = a + b, null co-occurrence). Wide tables:
+    pairwise statistics limited to `profiling.max_pair_columns` columns chosen
+    by role and variance, so 3,000 columns never mean 4.5 million pairs.
   - [ ] T4.5 Cross-table G: `profiling/relationships.py`. Tests.
   - [ ] T4.6 Behaviour H: `profiling/behaviour.py`. Tests.
   - [ ] T4.7 Label-stratified I: `profiling/stratified.py`. Tests.
@@ -456,7 +491,8 @@ confirmed or corrected it moves to section 3.
     conditional, boundary, derived, pattern with check digit, semantic via
     seeded Faker pools, text_pool, FK Zipf/weighted/shared group). Tests.
   - [ ] T5.3 Gaussian copula: `engine/copula.py`; nearest-PSD repair in
-    `spec/validator.py`. Tests: Spearman matrix recovered.
+    `spec/validator.py`. Tests: Spearman matrix recovered. Wide tables: the
+    copula covers at most `generation.max_copula_columns` correlated columns.
   - [ ] T5.4 Sequences and state paths: `engine/sequences.py`. Tests.
   - [ ] T5.5 Constraints, nulls, defects: `engine/constraints.py`,
     `engine/defects.py` (`_defect`). Tests.
@@ -464,7 +500,9 @@ confirmed or corrected it moves to section 3.
     test per primitive, spec construct → observable effect).
   - [ ] T5.7 Chunk planning: `engine/planning.py` (sizes, chunks, child chunks
     by parent key range, `SeedSequence.spawn`, disjoint key ranges, parent
-    attributes from Parquet). Tests.
+    attributes from Parquet). Chunk rows also bounded by
+    `generation.max_cells_per_chunk` / columns, so 3,000-column tables stay in
+    memory. Tests.
   - [ ] T5.8 Workers and chunk recovery: `engine/runner.py` (process pool,
     retry 3 with same seed, skip chunks in manifest, remove partial files).
     Tests: `--workers 1` vs `2` byte-identical; resume skips done chunks.
@@ -480,7 +518,8 @@ confirmed or corrected it moves to section 3.
 - **Tasks:**
   - [ ] T6.1 Fidelity complete: `validation/fidelity.py` (KS, Wasserstein/IQR,
     JS category, null diff, Spearman diff, temporal JS, children-per-parent
-    KS, row count; typical rows only; small-sample rule per Q6). Tests.
+    KS, row count; typical rows only; small-sample rule per Q6). Validation
+    reads Parquet in column batches for wide tables. Tests.
   - [ ] T6.2 Integrity complete: formats, constraints, parent date before child
     date. Tests.
   - [ ] T6.3 Scenario family: `validation/signature.py`,

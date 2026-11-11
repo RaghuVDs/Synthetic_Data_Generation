@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import math
-import sqlite3
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
@@ -16,6 +15,7 @@ from typing import Any
 
 import pyarrow as pa
 
+from synthgen.connectors.driver import max_columns, sqlite_driver
 from synthgen.domain.errors import ConnectorError, MetadataError, UnknownIdentifierError
 from synthgen.domain.query import (
     AggExpr,
@@ -31,6 +31,7 @@ HASH_MODULUS = 2_147_483_647
 """Prime modulus (2**31 - 1) of the rowid hash; products stay inside 64-bit integers."""
 HASH_MULTIPLIER = 1_327_217_885
 """About 0.618 x modulus: a golden-ratio step spreads selected rowids evenly over the table."""
+TOO_MANY_COLUMNS = "too many columns"
 PAGE_CACHE_KIB = 262_144
 """SQLite page cache per connection (256 MiB), enough to hold a seed-size table in memory."""
 SAMPLE_OVERDRAW = 1.2
@@ -65,7 +66,8 @@ class SqliteConnector:
         if not path.is_file():
             raise ConnectorError(f"source database {path} does not exist")
         self._uri = f"{path.resolve().as_uri()}?mode=ro"
-        self._conn: sqlite3.Connection | None = None
+        self._driver = sqlite_driver()
+        self._conn: Any = None  # Any: a DB-API connection from whichever SQLite driver is active
         self._tables: list[str] | None = None
         self._columns: dict[str, list[ColumnInfo]] = {}
 
@@ -76,21 +78,31 @@ class SqliteConnector:
             self._conn = None
 
     @contextmanager
-    def _connect(self) -> Iterator[sqlite3.Connection]:
+    def _connect(self) -> Iterator[Any]:  # Any: a DB-API connection of the active driver
+        error = self._driver.Error
         if self._conn is None:
             try:
-                self._conn = sqlite3.connect(self._uri, uri=True, check_same_thread=False)
+                self._conn = self._driver.connect(self._uri, uri=True, check_same_thread=False)
                 self._conn.execute(f"PRAGMA cache_size = -{PAGE_CACHE_KIB}")
-            except sqlite3.Error as exc:
-                raise ConnectorError(f"cannot open {self._uri}: {exc}") from exc
+            except error as exc:
+                raise ConnectorError(self._explain(f"cannot open {self._uri}", exc)) from exc
         try:
             yield self._conn
-        except sqlite3.Error as exc:
-            raise ConnectorError(f"query failed on {self._uri}: {exc}") from exc
+        except error as exc:
+            raise ConnectorError(self._explain(f"query failed on {self._uri}", exc)) from exc
+
+    def _explain(self, what: str, exc: Exception) -> str:
+        """The error text, plus how to read wider tables when the column limit was hit."""
+        if TOO_MANY_COLUMNS not in str(exc):
+            return f"{what}: {exc}"
+        limit = max_columns(self._driver)
+        hint = "run `make sqlite-wide` for tables of up to 32,767 columns"
+        return f"{what}: a table is wider than this SQLite build allows ({limit} columns); {hint}"
 
     def _query(self, sql: str, params: Sequence[SqlParam] = ()) -> list[tuple[Any, ...]]:
         with self._connect() as conn:
-            return conn.execute(sql, params).fetchall()
+            rows: list[tuple[Any, ...]] = conn.execute(sql, params).fetchall()
+            return rows
 
     def list_tables(self) -> list[str]:
         """User tables in the source, sorted by name."""

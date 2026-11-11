@@ -1,9 +1,13 @@
-.PHONY: setup check test test-slow format coverage
+.PHONY: setup sqlite-wide check test test-slow format coverage
 
 COVERED = */synthgen/domain/*,*/synthgen/spec/*,*/synthgen/engine/*,*/synthgen/validation/*
 
 setup:
 	uv sync
+
+# Optional: SQLite driver for tables wider than 2,000 columns (run after setup).
+sqlite-wide:
+	sh tools/build_wide_sqlite.sh
 
 check:
 	uv run ruff format --check .
