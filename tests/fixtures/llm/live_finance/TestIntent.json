@@ -1,0 +1,26 @@
+[
+  {
+    "match": null,
+    "response": {
+      "domain": "financial fraud detection",
+      "objective": "Validate that the fraud model flags card-testing bursts of small purchases and large nighttime purchases, while not flagging legitimate large daytime purchases",
+      "test_type": "model_validation",
+      "entities_of_interest": [
+        "customers",
+        "accounts",
+        "cards",
+        "transactions"
+      ],
+      "must_include": [
+        "card-testing bursts of small purchases",
+        "large purchases made at night",
+        "legitimate large purchases made during daytime"
+      ],
+      "must_exclude": [],
+      "volume_hint": null,
+      "include_invalid": false,
+      "ambiguities": [],
+      "confidence": 0.93
+    }
+  }
+]

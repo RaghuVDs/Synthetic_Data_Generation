@@ -1,0 +1,311 @@
+[
+  {
+    "match": null,
+    "response": {
+      "tables": [
+        {
+          "table": "customers",
+          "grain": "entity",
+          "entity_key": null,
+          "event_time": null,
+          "label_column": null,
+          "columns": [
+            {
+              "name": "customer_id",
+              "role": "identifier",
+              "note": null
+            },
+            {
+              "name": "first_name",
+              "role": "sensitive_identifier",
+              "note": "given name"
+            },
+            {
+              "name": "last_name",
+              "role": "sensitive_identifier",
+              "note": "family name"
+            },
+            {
+              "name": "email",
+              "role": "sensitive_identifier",
+              "note": "contact email address"
+            },
+            {
+              "name": "phone",
+              "role": "sensitive_identifier",
+              "note": "contact phone number; may be missing"
+            },
+            {
+              "name": "date_of_birth",
+              "role": "sensitive_identifier",
+              "note": "date of birth"
+            },
+            {
+              "name": "city",
+              "role": "category",
+              "note": "city of residence"
+            },
+            {
+              "name": "country",
+              "role": "category",
+              "note": "two\u2011letter country code of residence"
+            },
+            {
+              "name": "segment",
+              "role": "category",
+              "note": "customer segment (retail, premium, business)"
+            },
+            {
+              "name": "signup_date",
+              "role": "event_time",
+              "note": "date the customer joined the bank"
+            },
+            {
+              "name": "annual_income",
+              "role": "measure",
+              "note": "declared yearly income; may be missing"
+            },
+            {
+              "name": "credit_score",
+              "role": "measure",
+              "note": "credit score between 300 and 850"
+            }
+          ]
+        },
+        {
+          "table": "accounts",
+          "grain": "entity",
+          "entity_key": null,
+          "event_time": null,
+          "label_column": null,
+          "columns": [
+            {
+              "name": "account_id",
+              "role": "identifier",
+              "note": null
+            },
+            {
+              "name": "customer_id",
+              "role": "foreign_key",
+              "note": "owner of the account"
+            },
+            {
+              "name": "account_type",
+              "role": "category",
+              "note": "checking, savings or credit"
+            },
+            {
+              "name": "opened_date",
+              "role": "event_time",
+              "note": "date the account was opened; never before the customer's signup"
+            },
+            {
+              "name": "status",
+              "role": "status",
+              "note": "active, closed or frozen"
+            },
+            {
+              "name": "balance",
+              "role": "measure",
+              "note": "current balance"
+            },
+            {
+              "name": "credit_limit",
+              "role": "measure",
+              "note": "credit limit; set only for credit accounts"
+            }
+          ]
+        },
+        {
+          "table": "cards",
+          "grain": "entity",
+          "entity_key": null,
+          "event_time": null,
+          "label_column": null,
+          "columns": [
+            {
+              "name": "card_id",
+              "role": "identifier",
+              "note": null
+            },
+            {
+              "name": "account_id",
+              "role": "foreign_key",
+              "note": "account the card draws on"
+            },
+            {
+              "name": "card_number",
+              "role": "sensitive_identifier",
+              "note": "primary account number with Luhn check digit"
+            },
+            {
+              "name": "network",
+              "role": "category",
+              "note": "card network (visa, mastercard, amex)"
+            },
+            {
+              "name": "card_type",
+              "role": "category",
+              "note": "debit or credit"
+            },
+            {
+              "name": "issued_date",
+              "role": "event_time",
+              "note": "date the card was issued; never before the account opened"
+            },
+            {
+              "name": "expiry_date",
+              "role": "event_time",
+              "note": "date the card expires; always after issue"
+            },
+            {
+              "name": "status",
+              "role": "status",
+              "note": "active, blocked or expired"
+            }
+          ]
+        },
+        {
+          "table": "merchants",
+          "grain": "entity",
+          "entity_key": null,
+          "event_time": null,
+          "label_column": null,
+          "columns": [
+            {
+              "name": "merchant_id",
+              "role": "identifier",
+              "note": null
+            },
+            {
+              "name": "name",
+              "role": "free_text",
+              "note": "trading name"
+            },
+            {
+              "name": "category",
+              "role": "category",
+              "note": "business category"
+            },
+            {
+              "name": "mcc",
+              "role": "category",
+              "note": "merchant category code; follows the category"
+            },
+            {
+              "name": "city",
+              "role": "category",
+              "note": "city of the merchant"
+            },
+            {
+              "name": "country",
+              "role": "category",
+              "note": "two\u2011letter country code of the merchant"
+            },
+            {
+              "name": "risk_level",
+              "role": "category",
+              "note": "internal risk rating (low, medium, high)"
+            }
+          ]
+        },
+        {
+          "table": "transactions",
+          "grain": "event",
+          "entity_key": "card_id",
+          "event_time": "txn_timestamp",
+          "label_column": "is_fraud",
+          "columns": [
+            {
+              "name": "transaction_id",
+              "role": "identifier",
+              "note": null
+            },
+            {
+              "name": "card_id",
+              "role": "entity_key",
+              "note": "card used for the transaction"
+            },
+            {
+              "name": "merchant_id",
+              "role": "foreign_key",
+              "note": "merchant paid"
+            },
+            {
+              "name": "amount",
+              "role": "measure",
+              "note": "transaction amount in its currency"
+            },
+            {
+              "name": "currency",
+              "role": "category",
+              "note": "three\u2011letter currency code"
+            },
+            {
+              "name": "txn_timestamp",
+              "role": "event_time",
+              "note": "date and time of the attempt; never before the card was issued"
+            },
+            {
+              "name": "channel",
+              "role": "category",
+              "note": "point of sale, online or ATM"
+            },
+            {
+              "name": "status",
+              "role": "status",
+              "note": "approved, declined or reversed"
+            },
+            {
+              "name": "is_fraud",
+              "role": "label",
+              "note": "1 when the transaction was confirmed as fraud"
+            }
+          ]
+        }
+      ],
+      "business_rules": [
+        {
+          "rule": "account opened_date is never earlier than the owning customer's signup_date",
+          "columns": [
+            "opened_date",
+            "signup_date"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "rule": "card issued_date is never earlier than the account's opened_date",
+          "columns": [
+            "issued_date",
+            "opened_date"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "rule": "card expiry_date is always after issued_date",
+          "columns": [
+            "expiry_date",
+            "issued_date"
+          ],
+          "confidence": 0.99
+        },
+        {
+          "rule": "transaction txn_timestamp is never earlier than the card's issued_date",
+          "columns": [
+            "txn_timestamp",
+            "issued_date"
+          ],
+          "confidence": 0.95
+        },
+        {
+          "rule": "credit_limit is populated only for accounts where account_type = 'credit'",
+          "columns": [
+            "credit_limit",
+            "account_type"
+          ],
+          "confidence": 0.9
+        }
+      ]
+    }
+  }
+]

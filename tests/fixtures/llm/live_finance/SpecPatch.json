@@ -1,0 +1,10 @@
+[
+  {
+    "match": null,
+    "response": {
+      "patches": [],
+      "plan_change_required": true,
+      "explanation": "Not recorded: the live run needed no repair."
+    }
+  }
+]

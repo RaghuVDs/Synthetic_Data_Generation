@@ -1,0 +1,129 @@
+[
+  {
+    "match": null,
+    "response": {
+      "scenarios": [
+        {
+          "name": "card_testing_bursts",
+          "category": "target_scenario",
+          "share": 0.03,
+          "unit": "entity",
+          "entity": "cards",
+          "labels": [
+            {
+              "table": "transactions",
+              "column": "is_fraud",
+              "value": true
+            }
+          ],
+          "overrides": [
+            {
+              "table": "transactions",
+              "column": "amount",
+              "generator": {
+                "type": "empirical",
+                "quantiles": [
+                  0.0,
+                  10.62
+                ],
+                "decimals": 2
+              }
+            },
+            {
+              "table": "transactions",
+              "column": "txn_timestamp",
+              "generator": {
+                "type": "datetime",
+                "start": "2024-06-01T00:00:00",
+                "end": "2024-06-01T00:30:00",
+                "granularity": "datetime",
+                "weekday_weights": null,
+                "hour_weights": null
+              }
+            }
+          ]
+        },
+        {
+          "name": "large_nighttime_purchases",
+          "category": "target_scenario",
+          "share": 0.03,
+          "unit": "entity",
+          "entity": "transactions",
+          "labels": [
+            {
+              "table": "transactions",
+              "column": "is_fraud",
+              "value": true
+            }
+          ],
+          "overrides": [
+            {
+              "table": "transactions",
+              "column": "amount",
+              "generator": {
+                "type": "empirical",
+                "quantiles": [
+                  319.19,
+                  11292.0
+                ],
+                "decimals": 2
+              }
+            },
+            {
+              "table": "transactions",
+              "column": "txn_timestamp",
+              "generator": {
+                "type": "datetime",
+                "start": "2024-01-01T00:00:00",
+                "end": "2024-01-01T05:59:59",
+                "granularity": "datetime",
+                "weekday_weights": null,
+                "hour_weights": null
+              }
+            }
+          ]
+        },
+        {
+          "name": "legitimate_large_daytime",
+          "category": "near_miss",
+          "share": 0.02,
+          "unit": "entity",
+          "entity": "transactions",
+          "labels": [
+            {
+              "table": "transactions",
+              "column": "is_fraud",
+              "value": false
+            }
+          ],
+          "overrides": [
+            {
+              "table": "transactions",
+              "column": "amount",
+              "generator": {
+                "type": "empirical",
+                "quantiles": [
+                  319.19,
+                  11292.0
+                ],
+                "decimals": 2
+              }
+            },
+            {
+              "table": "transactions",
+              "column": "txn_timestamp",
+              "generator": {
+                "type": "datetime",
+                "start": "2024-01-01T09:00:00",
+                "end": "2024-01-01T17:59:59",
+                "granularity": "datetime",
+                "weekday_weights": null,
+                "hour_weights": null
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

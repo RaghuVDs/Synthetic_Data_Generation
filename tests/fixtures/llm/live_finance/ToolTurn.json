@@ -1,0 +1,15 @@
+[
+  {
+    "match": null,
+    "response": {
+      "tool_calls": [
+        {
+          "id": "fc_0b66b85e-1c2c-435b-b74b-50c68d033da0",
+          "name": "get_column_profile",
+          "arguments": "{\"column\":\"amount\",\"table\":\"transactions\"}"
+        }
+      ],
+      "content": ""
+    }
+  }
+]

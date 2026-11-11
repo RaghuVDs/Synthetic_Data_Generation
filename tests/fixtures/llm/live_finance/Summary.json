@@ -1,0 +1,12 @@
+[
+  {
+    "match": null,
+    "response": {
+      "text": "The job generated {total_rows} rows across {table_count} tables, covering customers, accounts, cards and transactions. It includes typical data for accounts, customers, merchants and transactions, plus focused scenarios: {scenario_rows_cards_card_testing_bursts} card\u2011testing bursts of small purchases, {scenario_rows_transactions_large_nighttime_purchases} large purchases made at night, and {scenario_rows_transactions_legitimate_large_daytime} legitimate large daytime purchases. Additional scenarios cover typical card usage, typical transactions and other burst patterns.",
+      "caveats": [
+        "The placeholder counts are not actual numbers and should be interpreted after substitution.",
+        "Scenario rows reflect synthetic patterns, not real fraud cases."
+      ]
+    }
+  }
+]

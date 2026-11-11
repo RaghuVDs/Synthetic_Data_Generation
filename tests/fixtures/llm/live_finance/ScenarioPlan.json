@@ -1,0 +1,283 @@
+[
+  {
+    "match": null,
+    "response": {
+      "assumptions": [
+        "Card-testing bursts are characterised by a rapid sequence of low\u2011value transactions on the same card within a short window (e.g., <30\u202fmin).",
+        "Large fraudulent purchases tend to occur at night (hour 0\u20115) and have amounts in the top 5\u202f% of the amount distribution.",
+        "Legitimate large purchases occur during normal business hours (hour 9\u201117) and are not flagged as fraud."
+      ],
+      "scenarios": [
+        {
+          "name": "card_testing_bursts",
+          "category": "target_scenario",
+          "description": "A short burst of many low\u2011value transactions on a single card, typical of card\u2011testing fraud.",
+          "rationale": "Matches the intent requirement for card\u2011testing bursts of small purchases.",
+          "share": 0.03,
+          "unit": "entity",
+          "tables": [
+            "transactions",
+            "cards"
+          ],
+          "primitives": [
+            "sequence",
+            "value_shift",
+            "timing_shift"
+          ],
+          "levers": [
+            {
+              "table": "transactions",
+              "column": "amount",
+              "primitive": "value_shift",
+              "change": "amount at or below the 5th percentile (p5 = 10.62), i.e., small purchases"
+            },
+            {
+              "table": "transactions",
+              "column": "txn_timestamp",
+              "primitive": "timing_shift",
+              "change": "inter\u2011arrival time between successive transactions on the same card \u2264 30 minutes, forming a rapid sequence"
+            },
+            {
+              "table": "transactions",
+              "column": "card_id",
+              "primitive": "relationship_shape",
+              "change": "multiple (\u22655) transactions share the same card_id within the burst window"
+            }
+          ],
+          "signature": [
+            {
+              "table": "transactions",
+              "column": "amount",
+              "metric": "max",
+              "operator": "le",
+              "value": 10.62,
+              "window_hours": null
+            },
+            {
+              "table": "transactions",
+              "column": "card_id",
+              "metric": "distinct_count",
+              "operator": "eq",
+              "value": 1,
+              "window_hours": 0.5
+            },
+            {
+              "table": "transactions",
+              "column": "txn_timestamp",
+              "metric": "inter_arrival_hours",
+              "operator": "le",
+              "value": 0.5,
+              "window_hours": null
+            }
+          ],
+          "template_ref": null
+        },
+        {
+          "name": "large_nighttime_purchases",
+          "category": "target_scenario",
+          "description": "High\u2011value transactions occurring during night hours, typical of fraudulent activity.",
+          "rationale": "Covers the intent to validate detection of large purchases made at night.",
+          "share": 0.03,
+          "unit": "entity",
+          "tables": [
+            "transactions"
+          ],
+          "primitives": [
+            "value_shift",
+            "timing_shift"
+          ],
+          "levers": [
+            {
+              "table": "transactions",
+              "column": "amount",
+              "primitive": "value_shift",
+              "change": "amount at or above the 95th percentile (p95 = 319.19), i.e., large purchases"
+            },
+            {
+              "table": "transactions",
+              "column": "txn_timestamp",
+              "primitive": "timing_shift",
+              "change": "hour_of_day between 0 and 5 (nighttime)"
+            }
+          ],
+          "signature": [
+            {
+              "table": "transactions",
+              "column": "amount",
+              "metric": "min",
+              "operator": "ge",
+              "value": 319.19,
+              "window_hours": null
+            },
+            {
+              "table": "transactions",
+              "column": "txn_timestamp",
+              "metric": "hour_of_day",
+              "operator": "in",
+              "value": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+              ],
+              "window_hours": null
+            }
+          ],
+          "template_ref": null
+        },
+        {
+          "name": "legitimate_large_daytime",
+          "category": "near_miss",
+          "description": "Large transactions occurring during normal business hours that should NOT be flagged as fraud.",
+          "rationale": "Ensures the model does not over\u2011flag legitimate large daytime purchases.",
+          "share": 0.02,
+          "unit": "entity",
+          "tables": [
+            "transactions"
+          ],
+          "primitives": [
+            "value_shift",
+            "timing_shift"
+          ],
+          "levers": [
+            {
+              "table": "transactions",
+              "column": "amount",
+              "primitive": "value_shift",
+              "change": "amount at or above the 95th percentile (p95 = 319.19)"
+            },
+            {
+              "table": "transactions",
+              "column": "txn_timestamp",
+              "primitive": "timing_shift",
+              "change": "hour_of_day between 9 and 17 (daytime business hours)"
+            },
+            {
+              "table": "transactions",
+              "column": "is_fraud",
+              "primitive": "rule_break",
+              "change": "label remains 0 (non\u2011fraud) despite large amount"
+            }
+          ],
+          "signature": [
+            {
+              "table": "transactions",
+              "column": "amount",
+              "metric": "min",
+              "operator": "ge",
+              "value": 319.19,
+              "window_hours": null
+            },
+            {
+              "table": "transactions",
+              "column": "txn_timestamp",
+              "metric": "hour_of_day",
+              "operator": "in",
+              "value": [
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17
+              ],
+              "window_hours": null
+            },
+            {
+              "table": "transactions",
+              "column": "is_fraud",
+              "metric": "value",
+              "operator": "eq",
+              "value": false,
+              "window_hours": null
+            }
+          ],
+          "template_ref": null
+        },
+        {
+          "name": "boundary_transactions_amount",
+          "category": "boundary",
+          "description": "Transactions at the observed minimum and maximum amount values.",
+          "rationale": "Provides boundary coverage from PROFILE_CANDIDATES.",
+          "share": 0.01,
+          "unit": "entity",
+          "tables": [
+            "transactions"
+          ],
+          "primitives": [
+            "boundary_value"
+          ],
+          "levers": [
+            {
+              "table": "transactions",
+              "column": "amount",
+              "primitive": "boundary_value",
+              "change": "amount equal to the observed minimum (0.39) or maximum (11292.22)"
+            }
+          ],
+          "signature": [
+            {
+              "table": "transactions",
+              "column": "amount",
+              "metric": "value",
+              "operator": "in",
+              "value": [
+                0.39,
+                11292.22
+              ],
+              "window_hours": null
+            }
+          ],
+          "template_ref": null
+        },
+        {
+          "name": "volume_skew_transactions_merchant",
+          "category": "volume_skew",
+          "description": "A small set of merchants account for the majority of transaction rows.",
+          "rationale": "Adds realistic volume skew from PROFILE_CANDIDATES.",
+          "share": 0.01,
+          "unit": "entity",
+          "tables": [
+            "transactions",
+            "merchants"
+          ],
+          "primitives": [
+            "volume_skew"
+          ],
+          "levers": [
+            {
+              "table": "transactions",
+              "column": "merchant_id",
+              "primitive": "volume_skew",
+              "change": "\u22485\u202f% of merchants generate >80\u202f% of transaction rows"
+            }
+          ],
+          "signature": [
+            {
+              "table": "transactions",
+              "column": "merchant_id",
+              "metric": "distinct_count",
+              "operator": "le",
+              "value": 200,
+              "window_hours": null
+            },
+            {
+              "table": "transactions",
+              "column": "merchant_id",
+              "metric": "count",
+              "operator": "ge",
+              "value": 160000,
+              "window_hours": null
+            }
+          ],
+          "template_ref": null
+        }
+      ]
+    }
+  }
+]
