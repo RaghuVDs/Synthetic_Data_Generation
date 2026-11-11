@@ -72,3 +72,10 @@ def test_profile_prints_cards_without_sensitive_values(job_env: EnvFactory) -> N
     assert result.exit_code == 0, result.output
     assert "mask" in result.output
     assert "@example" not in result.output
+
+
+def test_profile_shows_fits_and_rare_shares(job_env: EnvFactory) -> None:
+    result = invoke(job_env(), ["profile", "--source", "finance", "--tables", "transactions"])
+    assert result.exit_code == 0, result.output
+    assert "lognorm" in result.output
+    assert "1 0.50%" in result.output  # the fraud label is not rounded away

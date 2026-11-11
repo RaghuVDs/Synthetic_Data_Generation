@@ -11,7 +11,7 @@ from rich.table import Table
 from synthgen.app import JobReport, JobView
 from synthgen.domain.metadata import SourceOverview
 from synthgen.domain.pending import PendingApproval, PendingClarification
-from synthgen.profiling.card import CardColumn, LlmSafeProfile
+from synthgen.profiling.card import CardColumn, LlmSafeProfile, format_share
 
 
 def render_seed(console: Console, counts: dict[str, dict[str, int]]) -> None:
@@ -61,7 +61,8 @@ def render_cards(console: Console, cards: Sequence[LlmSafeProfile]) -> None:
     """One table per profile card; sensitive columns show only their mask and lengths."""
     for card in cards:
         table = Table(title=f"{card.table} ({card.row_count:,} rows)", title_justify="left")
-        for heading in ("column", "type", "semantic", "class", "nulls", "distinct", "summary"):
+        headings = ("column", "type", "semantic", "class", "nulls", "distinct", "summary", "fit")
+        for heading in headings:
             table.add_column(heading)
         for c in card.columns:
             table.add_row(
@@ -72,6 +73,7 @@ def render_cards(console: Console, cards: Sequence[LlmSafeProfile]) -> None:
                 f"{c.null_rate:.1%}",
                 f"{c.distinct_count:,}",
                 _summary(c),
+                c.best_fit or "",
             )
         console.print(table)
 
@@ -85,7 +87,7 @@ def _summary(column: CardColumn) -> str:
     if column.date_range is not None:
         return f"{column.date_range[0]} .. {column.date_range[1]}"
     if column.top_values:
-        return ", ".join(f"{v.value} {v.share:.0%}" for v in column.top_values)
+        return ", ".join(f"{v.value} {format_share(v.share)}" for v in column.top_values)
     return ""
 
 

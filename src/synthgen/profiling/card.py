@@ -13,6 +13,7 @@ from synthgen.config import ProfilingSettings
 from synthgen.domain.base import StrictModel
 from synthgen.domain.metadata import Relationship, Sensitivity, TableMeta
 from synthgen.profiling.models import ColumnProfile, InferredType, TableProfile
+from synthgen.profiling.table_stats import identifier_columns
 
 RATE_DIGITS = 4
 FIVE_NUMBER_PERCENTILES = (25.0, 50.0, 75.0)
@@ -67,11 +68,17 @@ def build_card(
         relationships=[
             r.label() for r in relationships if profile.table in (r.child_table, r.parent_table)
         ],
-        columns=[_card_column(c, meta, settings) for c in profile.columns],
+        columns=[
+            _card_column(c, meta, settings, keys=identifier_columns(meta, relationships))
+            for c in profile.columns
+        ],
     )
 
 
-def _card_column(column: ColumnProfile, meta: TableMeta, settings: ProfilingSettings) -> CardColumn:
+def _card_column(
+    column: ColumnProfile, meta: TableMeta, settings: ProfilingSettings, *, keys: set[str]
+) -> CardColumn:
+    """One column's card line; keys get no distribution fit, which would mean nothing for them."""
     sensitive = column.sensitivity is Sensitivity.SENSITIVE
     col_meta = meta.column(column.name)
     shape = column.text
@@ -88,7 +95,9 @@ def _card_column(column: ColumnProfile, meta: TableMeta, settings: ProfilingSett
         if sensitive or column.temporal is None
         else (column.temporal.minimum.value, column.temporal.maximum.value),
         top_values=None if sensitive else _top_values(column, settings),
-        best_fit=None if sensitive or column.numeric is None else column.numeric.best_fit,
+        best_fit=None
+        if sensitive or column.numeric is None or column.name in keys
+        else column.numeric.best_fit,
         mask=shape.masks.value[0].mask if sensitive and shape and shape.masks.value else None,
         length_range=(shape.length_min.value, shape.length_max.value)
         if sensitive and shape
@@ -130,7 +139,7 @@ def _number(value: float) -> str:
     return f"{value:,.0f}" if abs(value) >= WHOLE_NUMBER_FROM else f"{value:,.4g}"
 
 
-def _share(share: float) -> str:
+def format_share(share: float) -> str:
     """A percentage; shares below 1% keep two decimals so rare values do not read as 0%."""
     return f"{share:.2%}" if 0 < share < SMALL_SHARE else f"{share:.0%}"
 
@@ -158,7 +167,9 @@ def _column_line(column: CardColumn, role: str | None) -> str:
     elif column.date_range is not None:
         parts.append(f"{column.date_range[0]} .. {column.date_range[1]}")
     elif column.top_values:
-        parts.append("top " + ", ".join(f"{v.value} {_share(v.share)}" for v in column.top_values))
+        parts.append(
+            "top " + ", ".join(f"{v.value} {format_share(v.share)}" for v in column.top_values)
+        )
     line = " | ".join(parts)
     return f"{line} : {column.description}" if column.description else line
 

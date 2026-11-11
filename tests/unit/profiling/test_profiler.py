@@ -136,6 +136,8 @@ def test_card_shows_the_best_fit(
     amount = next(c for c in card.columns if c.name == "amount")
     assert amount.best_fit in {"lognorm", "gamma"}  # ~450 log-normal values: both fit closely
     assert f"fit {amount.best_fit}" in card_text(card)
+    key = next(c for c in card.columns if c.name == "id")
+    assert key.five_number is not None and key.best_fit is None
 
 
 def test_card_folds_rare_internal_values(
