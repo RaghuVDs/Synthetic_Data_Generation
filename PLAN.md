@@ -488,7 +488,7 @@ confirmed or corrected it moves to section 3.
     `storage/profile_cache.py` (schema hash, 7-day age, `--refresh`), full
     cards. Tests: `tests/unit/profiling/test_privacy.py`,
     `tests/unit/storage/test_profile_cache.py`.
-  - [ ] T4.9 Recovery test: `tests/integration/test_profile_recovers_seed.py`
+  - [x] T4.9 Recovery test: `tests/integration/test_profile_recovers_seed.py`
     (log-normal amounts, Zipf keys, hour/weekday mix, fraud rate,
     correlations, date-order rules).
 - **Acceptance:** `python main.py profile --source finance --tables
