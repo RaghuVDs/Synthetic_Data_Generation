@@ -59,3 +59,7 @@ class PatchError(SynthgenError):
 
 class ToolArgumentError(SynthgenError):
     """A planner tool was called with a table, column or value it may not use."""
+
+
+class PrivacyError(SynthgenError):
+    """A profile would store a value its column's sensitivity class forbids."""

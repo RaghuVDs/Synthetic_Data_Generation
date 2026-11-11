@@ -9,9 +9,9 @@ from synthgen.profiling.inference import (
     mask,
     mask_shares,
     semantic_type,
-    sensitivity_for,
 )
 from synthgen.profiling.models import InferredType
+from synthgen.profiling.privacy import classify
 
 
 @pytest.mark.parametrize(
@@ -58,9 +58,9 @@ def test_semantic_type_for_dates_and_numbers() -> None:
 
 
 def test_sensitivity_rules() -> None:
-    assert sensitivity_for(Sensitivity.PUBLIC, "email") is Sensitivity.PUBLIC
-    assert sensitivity_for(None, "email") is Sensitivity.SENSITIVE
-    assert sensitivity_for(None, None) is Sensitivity.PUBLIC
+    assert classify(Sensitivity.PUBLIC, "email") is Sensitivity.PUBLIC
+    assert classify(None, "email") is Sensitivity.SENSITIVE
+    assert classify(None, None) is Sensitivity.PUBLIC
 
 
 def test_masks() -> None:

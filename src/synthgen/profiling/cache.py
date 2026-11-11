@@ -16,7 +16,8 @@ from pydantic import BaseModel
 from synthgen.config import ProfilingSettings
 from synthgen.domain.metadata import Relationship, TableMeta
 from synthgen.domain.ports import Connector, MetadataProvider
-from synthgen.profiling.profiler import profile_table, schema_hash
+from synthgen.profiling.profiler import profile_table
+from synthgen.profiling.table_stats import schema_hash
 
 
 class CachedEntry(Protocol):

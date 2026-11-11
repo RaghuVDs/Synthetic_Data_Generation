@@ -19,6 +19,7 @@ def column(name: str) -> CardColumn:
         five_number=(0.0, 1.0, 2.0, 3.0, 4.0),
         date_range=None,
         top_values=None,
+        best_fit=None,
         mask=None,
         length_range=None,
     )

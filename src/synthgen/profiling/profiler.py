@@ -5,8 +5,6 @@ Sensitive columns keep lengths and masks only (SPEC 8.3); no value of theirs ent
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -24,7 +22,7 @@ from synthgen.profiling.batching import batched_aggregate, batched_sample, sampl
 from synthgen.profiling.behaviour_profile import EventSource, behaviour_profiles
 from synthgen.profiling.categorical import categorical_profile, sample_counts
 from synthgen.profiling.cross_column import cross_column_profile
-from synthgen.profiling.inference import Value, infer_type, semantic_type, sensitivity_for
+from synthgen.profiling.inference import Value, infer_type, semantic_type
 from synthgen.profiling.label_profile import label_candidates, stratified_profile
 from synthgen.profiling.models import (
     CategoricalProfile,
@@ -35,8 +33,15 @@ from synthgen.profiling.models import (
     TableProfile,
 )
 from synthgen.profiling.numeric import SqlMoments, numeric_profile
+from synthgen.profiling.privacy import check_privacy, classify, min_count
 from synthgen.profiling.relationships import RelationshipInputs, relationship_profile
 from synthgen.profiling.shape_models import TextFormat
+from synthgen.profiling.table_stats import (
+    duplicate_rate,
+    identifier_columns,
+    primary_key_unique,
+    schema_hash,
+)
 from synthgen.profiling.temporal import temporal_profile
 from synthgen.profiling.text import text_format, text_shape
 
@@ -53,12 +58,6 @@ class ColumnFacts:
     inferred: InferredType
     values: list[Value]
     agg: dict[str, Any]  # Any: SQLite aggregate cells (int, float, str or None)
-
-
-def schema_hash(meta: TableMeta) -> str:
-    """Hash of column names and declared types; a change invalidates cached profiles."""
-    shape = [(c.name, c.declared_type, c.nullable, c.primary_key, c.unique) for c in meta.columns]
-    return hashlib.sha256(json.dumps([meta.name, shape]).encode()).hexdigest()[:16]
 
 
 def profile_table(  # noqa: PLR0913 - the full context of one profiling run
@@ -94,16 +93,16 @@ def profile_table(  # noqa: PLR0913 - the full context of one profiling run
         connector, meta.name, rows, settings, numeric_columns <= settings.max_fit_columns, now
     )
     columns = [_column(ctx, f) for f in facts]
-    keys = _keys(meta, relationships)
+    keys = identifier_columns(meta, relationships)
     labels = label_candidates(columns, keys, settings)
-    return TableProfile(
+    profile = TableProfile(
         source=source,
         table=meta.name,
         schema_hash=schema_hash(meta),
         row_count=Measured[int](value=rows, source=StatSource.SQL),
-        primary_key_unique=_primary_key_unique(meta, columns, rows),
+        primary_key_unique=primary_key_unique(meta, columns, rows),
         duplicate_row_rate=Measured[float](
-            value=_duplicate_rate(sample, [c.name for c in meta.columns if not c.primary_key]),
+            value=duplicate_rate(sample, [c.name for c in meta.columns if not c.primary_key]),
             source=StatSource.SAMPLE,
         ),
         completeness=Measured[float](
@@ -128,6 +127,7 @@ def profile_table(  # noqa: PLR0913 - the full context of one profiling run
         ),
         stratified=[stratified_profile(sample, columns, label, keys, settings) for label in labels],
     )
+    return check_privacy(profile, settings)
 
 
 def _facts(
@@ -170,13 +170,13 @@ class TableContext:
 
 
 def _column(ctx: TableContext, facts: ColumnFacts) -> ColumnProfile:
-    connector, table, rows, settings = ctx.connector, ctx.table, ctx.rows, ctx.settings
+    rows, settings = ctx.rows, ctx.settings
     count, distinct = int(facts.agg["count"]), int(facts.agg["count_distinct"])
     semantic = semantic_type(facts.values, facts.inferred)
-    sensitivity = sensitivity_for(facts.meta.sensitivity, semantic)
+    sensitivity = classify(facts.meta.sensitivity, semantic)
     sensitive = sensitivity is Sensitivity.SENSITIVE
     texts = [str(v) for v in facts.values]
-    top = None if sensitive or not facts.values else Counter(facts.values).most_common(1)[0]
+    top = _top(facts.values, count, min_count(sensitivity, settings)) if not sensitive else None
     sql, derived, sampled = StatSource.SQL, StatSource.DERIVED, StatSource.SAMPLE
     usable = not sensitive and bool(facts.values)
     return ColumnProfile(
@@ -192,9 +192,7 @@ def _column(ctx: TableContext, facts: ColumnFacts) -> ColumnProfile:
         is_unique=Measured[bool](value=count > 0 and distinct == count, source=derived),
         is_constant=Measured[bool](value=distinct == 1, source=derived),
         top_value=None if top is None else Measured(value=_scalar(top[0]), source=sampled),
-        top_share=None
-        if top is None
-        else Measured[float](value=top[1] / len(facts.values), source=sampled),
+        top_share=None if top is None else Measured[float](value=top[1], source=sampled),
         empty_rate=Measured[float](
             value=sum(not t.strip() for t in texts) / len(texts) if texts else 0.0, source=sampled
         ),
@@ -208,7 +206,7 @@ def _column(ctx: TableContext, facts: ColumnFacts) -> ColumnProfile:
         if usable and facts.inferred in NUMERIC
         else None,
         categorical=_categorical(
-            connector, table, facts, count=count, distinct=distinct, settings=settings
+            ctx, facts, count=count, distinct=distinct, threshold=min_count(sensitivity, settings)
         )
         if usable and facts.inferred in CATEGORICAL
         else None,
@@ -239,16 +237,14 @@ def _moments(agg: dict[str, Any]) -> SqlMoments:  # Any: SQLite aggregate cells
     )
 
 
-def _categorical(  # noqa: PLR0913 - column context plus the two exact counts
-    connector: Connector,
-    table: str,
-    facts: ColumnFacts,
-    *,
-    count: int,
-    distinct: int,
-    settings: ProfilingSettings,
+def _categorical(
+    ctx: TableContext, facts: ColumnFacts, *, count: int, distinct: int, threshold: int
 ) -> CategoricalProfile:
-    """Exact SQL frequencies for up to `max_full_frequencies` values, else sampled top values."""
+    """Exact SQL frequencies for up to `max_full_frequencies` values, else sampled top values.
+
+    Values held by fewer than `threshold` rows are left out of the stored frequencies.
+    """
+    connector, table, settings = ctx.connector, ctx.table, ctx.settings
     if distinct <= settings.max_full_frequencies:
         grouped = connector.aggregate(
             table, [AggExpr(func=AggFunc.COUNT, column=None, alias="n")], group_by=[facts.meta.name]
@@ -258,9 +254,20 @@ def _categorical(  # noqa: PLR0913 - column context plus the two exact counts
             for r in grouped
             if r[facts.meta.name] is not None
         ]
-        return categorical_profile(counts, count, StatSource.SQL, settings)
+        return categorical_profile(counts, count, StatSource.SQL, settings, threshold)
     sampled = [_scalar(v) for v in facts.values]
-    return categorical_profile(sample_counts(sampled), len(sampled), StatSource.SAMPLE, settings)
+    return categorical_profile(
+        sample_counts(sampled), len(sampled), StatSource.SAMPLE, settings, threshold
+    )
+
+
+def _top(values: list[Value], count: int, threshold: int) -> tuple[Value, float] | None:
+    """Most frequent sampled value and its share, unless it covers fewer than `threshold` rows."""
+    if not values:
+        return None
+    value, n = Counter(values).most_common(1)[0]
+    share = n / len(values)
+    return (value, share) if share * count >= threshold else None
 
 
 def _scalar(value: Value) -> str | int | float:
@@ -269,25 +276,3 @@ def _scalar(value: Value) -> str | int | float:
     if isinstance(value, bytes):
         return value.hex()
     return value
-
-
-def _primary_key_unique(
-    meta: TableMeta, columns: Sequence[ColumnProfile], rows: int
-) -> Measured[bool] | None:
-    keys = [c for c in columns if c.name in meta.primary_key]
-    if len(keys) != 1:
-        return None
-    return Measured[bool](value=keys[0].distinct_count.value == rows, source=StatSource.DERIVED)
-
-
-def _keys(meta: TableMeta, relationships: Sequence[Relationship]) -> set[str]:
-    """Primary-key, declared-unique and foreign-key columns: identifiers, not measurements."""
-    keys = {c.name for c in meta.columns if c.primary_key or c.unique}
-    return keys | {r.child_column for r in relationships if r.child_table == meta.name}
-
-
-def _duplicate_rate(sample: pa.Table, columns: list[str]) -> float:
-    if not columns or sample.num_rows == 0:
-        return 0.0
-    rows = list(zip(*(sample.column(c).to_pylist() for c in columns), strict=True))
-    return 1.0 - len(set(rows)) / len(rows)

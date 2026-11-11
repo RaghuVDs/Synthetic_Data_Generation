@@ -13,7 +13,8 @@ from synthgen.domain.metadata import Sensitivity
 from synthgen.metadata.provider import SourceDoc, YamlMetadataProvider
 from synthgen.profiling.card import build_card, card_text
 from synthgen.profiling.models import InferredType, StatSource, TableProfile
-from synthgen.profiling.profiler import profile_table, schema_hash
+from synthgen.profiling.profiler import profile_table
+from synthgen.profiling.table_stats import schema_hash
 
 PROFILE_NOW = datetime(2026, 1, 1, tzinfo=UTC)
 
@@ -123,6 +124,18 @@ def test_card_hides_sensitive_values(
     assert tier.top_values is not None and len(tier.top_values) == 3
     assert card.relationships == ["orders.customer_id -> customers.id"]
     assert len(json.dumps(card.model_dump())) < 4_000
+
+
+def test_card_shows_the_best_fit(
+    connector: SqliteConnector,
+    provider: YamlMetadataProvider,
+    profiling_settings: ProfilingSettings,
+) -> None:
+    profile = _profile(connector, provider, "orders", profiling_settings)
+    card = build_card(profile, provider.table("orders"), [], profiling_settings)
+    amount = next(c for c in card.columns if c.name == "amount")
+    assert amount.best_fit in {"lognorm", "gamma"}  # ~450 log-normal values: both fit closely
+    assert f"fit {amount.best_fit}" in card_text(card)
 
 
 def test_card_folds_rare_internal_values(

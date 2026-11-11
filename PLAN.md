@@ -484,7 +484,7 @@ confirmed or corrected it moves to section 3.
   - [x] T4.5 Cross-table G: `profiling/relationships.py`. Tests.
   - [x] T4.6 Behaviour H: `profiling/behaviour.py`. Tests.
   - [x] T4.7 Label-stratified I: `profiling/stratified.py`. Tests.
-  - [ ] T4.8 Sensitivity and cache: `profiling/privacy.py` (classes, folding),
+  - [x] T4.8 Sensitivity and cache: `profiling/privacy.py` (classes, folding),
     `storage/profile_cache.py` (schema hash, 7-day age, `--refresh`), full
     cards. Tests: `tests/unit/profiling/test_privacy.py`,
     `tests/unit/storage/test_profile_cache.py`.

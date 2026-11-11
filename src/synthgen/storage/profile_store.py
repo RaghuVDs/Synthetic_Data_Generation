@@ -32,13 +32,19 @@ class ProfileStore:
         self._clock = clock
 
     def put(self, source: str, table: str, schema_hash: str, profile: BaseModel) -> str:
-        """Store a profile and return its content-derived version; storing twice is harmless."""
+        """Store a profile and return its content-derived version.
+
+        Storing the same content again refreshes its age: it was just recomputed and found
+        unchanged, so it must not look stale and be recomputed on every later request.
+        """
         content = profile.model_dump_json()
         version = hashlib.sha256(content.encode()).hexdigest()[:VERSION_CHARS]
         with self._db.connect() as conn:
             conn.execute(
-                "INSERT OR IGNORE INTO profile_cache (source, table_name, schema_hash,"
-                " profile_version, content_json, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO profile_cache (source, table_name, schema_hash,"
+                " profile_version, content_json, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+                " ON CONFLICT (source, table_name, profile_version)"
+                " DO UPDATE SET created_at = excluded.created_at",
                 (source, table, schema_hash, version, content, self._clock().isoformat()),
             )
         return version

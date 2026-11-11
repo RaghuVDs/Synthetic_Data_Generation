@@ -28,6 +28,7 @@ from synthgen.profiling.label_models import (
     StratifiedProfile,
 )
 from synthgen.profiling.models import ColumnProfile, InferredType
+from synthgen.profiling.privacy import fold_counts, min_count
 from synthgen.profiling.stratified import categorical_separation, numeric_separation
 from synthgen.profiling.temporal import epoch_seconds
 
@@ -38,7 +39,6 @@ CLASS_PERCENTILES = (5.0, 25.0, 50.0, 75.0, 95.0)
 SECONDS_PER_DAY = 86_400
 WEEKDAYS = 7
 HOURS = 24
-OTHER = "other"
 HOUR_KIND = "hour_of_day"
 """Separation kind of a date-time column whose hour of day separates better than its value."""
 
@@ -139,13 +139,9 @@ def _shares(
     column: ColumnProfile, texts: pd.Series, settings: ProfilingSettings
 ) -> list[tuple[str, float]]:
     """Top values within one class; internal columns fold values under the row minimum."""
-    counts = Counter(texts.dropna().tolist())
+    counts = fold_counts(Counter(texts.dropna().tolist()), min_count(column.sensitivity, settings))
     total = sum(counts.values())
-    if column.sensitivity is Sensitivity.INTERNAL:
-        rare = [v for v, n in counts.items() if n < settings.internal_min_count]
-        for value in rare:
-            counts[OTHER] += counts.pop(value)
-    return [(str(v), n / total) for v, n in counts.most_common(settings.max_conditional_levels)]
+    return [(v, n / total) for v, n in counts.most_common(settings.max_conditional_levels)]
 
 
 def _class_column(

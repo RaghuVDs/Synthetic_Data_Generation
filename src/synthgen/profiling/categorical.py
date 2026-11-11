@@ -19,17 +19,20 @@ def categorical_profile(
     total: int,
     source: StatSource,
     settings: ProfilingSettings,
+    threshold: int = 0,
 ) -> CategoricalProfile:
     """Frequencies (all values, or the top ones plus `other`), entropy and rare values.
 
     `counts` are exact (SQL) or sampled value counts; `total` is the non-null row count they cover.
+    Values counted fewer than `threshold` times fold into `other`; entropy still uses them all.
     """
     ordered = sorted(counts, key=lambda vc: (-vc[1], str(vc[0])))
-    keep = (
+    top = (
         ordered
         if len(ordered) <= settings.max_full_frequencies
         else ordered[: settings.top_frequencies]
     )
+    keep = [(v, n) for v, n in top if n >= threshold]
     kept_total = sum(n for _, n in keep)
     shares = [n / total for _, n in ordered] if total else []
     entropy = -sum(p * math.log(p) for p in shares if p > 0)

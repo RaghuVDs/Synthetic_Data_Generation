@@ -149,6 +149,7 @@ def _card(table: str, *columns: str) -> LlmSafeProfile:
                 five_number=None,
                 date_range=None,
                 top_values=None,
+                best_fit=None,
                 mask=None,
                 length_range=None,
             )

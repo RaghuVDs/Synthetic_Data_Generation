@@ -28,6 +28,7 @@ from synthgen.profiling.associations import (
     numeric_pair,
 )
 from synthgen.profiling.models import ColumnProfile, InferredType
+from synthgen.profiling.privacy import fold_labels, min_count
 from synthgen.profiling.relation_models import (
     CategoricalPair,
     ConditionalShares,
@@ -93,7 +94,10 @@ class Arrays:
     labels: dict[str, list[str]]
 
 
-def _arrays(sample: pa.Table, columns: Sequence[ColumnProfile]) -> Arrays:
+def _arrays(
+    sample: pa.Table, columns: Sequence[ColumnProfile], settings: ProfilingSettings
+) -> Arrays:
+    """Typed arrays per column; internal categories seen on few sampled rows become `other`."""
     numeric: dict[str, NDArray[np.float64]] = {}
     temporal: dict[str, NDArray[np.float64]] = {}
     codes: dict[str, NDArray[np.int64]] = {}
@@ -104,7 +108,10 @@ def _arrays(sample: pa.Table, columns: Sequence[ColumnProfile]) -> Arrays:
             numeric[column.name] = pd.to_numeric(series, errors="coerce").to_numpy(np.float64)
         if column.inferred_type in TEMPORAL:
             temporal[column.name] = epoch_seconds(series.tolist())
-        found, uniques = pd.factorize(series.where(series.isna(), series.astype(str)), sort=True)
+        texts = series.where(series.isna(), series.astype(str))
+        if column.inferred_type in CATEGORICAL:
+            texts = fold_labels(texts, min_count(column.sensitivity, settings))
+        found, uniques = pd.factorize(texts, sort=True)
         codes[column.name] = found.astype(np.int64)
         labels[column.name] = [str(u) for u in uniques]
     return Arrays(numeric, temporal, codes, labels)
@@ -135,7 +142,7 @@ def cross_column_profile(
     """Spearman matrix, strong pairs, conditional distributions, rules and null co-occurrence."""
     selected, truncated = select_columns(columns, keys, settings)
     rows = sample.slice(0, settings.pair_sample_size)
-    arrays = _arrays(rows, selected)
+    arrays = _arrays(rows, selected, settings)
     strong = settings.strong_association
     spearman = _spearman(arrays.numeric)
     names = list(arrays.numeric)

@@ -1,7 +1,8 @@
 """LlmSafeProfile: the only view of a profile an agent may receive (SPEC 8.3, CLAUDE.md).
 
 Sensitive columns show a mask and a length range, never a value. Internal columns show only
-values held by at least `internal_min_count` rows.
+values held by at least `internal_min_count` rows. Profiles already fold rarer values; the card
+checks again because it is the boundary the LLM sees.
 """
 
 from __future__ import annotations
@@ -37,6 +38,7 @@ class CardColumn(StrictModel):
     five_number: tuple[float, float, float, float, float] | None
     date_range: tuple[str, str] | None
     top_values: list[TopValue] | None
+    best_fit: str | None
     mask: str | None
     length_range: tuple[int, int] | None
 
@@ -86,6 +88,7 @@ def _card_column(column: ColumnProfile, meta: TableMeta, settings: ProfilingSett
         if sensitive or column.temporal is None
         else (column.temporal.minimum.value, column.temporal.maximum.value),
         top_values=None if sensitive else _top_values(column, settings),
+        best_fit=None if sensitive or column.numeric is None else column.numeric.best_fit,
         mask=shape.masks.value[0].mask if sensitive and shape and shape.masks.value else None,
         length_range=(shape.length_min.value, shape.length_max.value)
         if sensitive and shape
@@ -150,6 +153,8 @@ def _column_line(column: CardColumn, role: str | None) -> str:
         lo, p25, p50, p75, hi = column.five_number
         named = zip(("min", "p25", "p50", "p75", "max"), (lo, p25, p50, p75, hi), strict=True)
         parts.append(" ".join(f"{label} {_number(v)}" for label, v in named))
+        if column.best_fit:
+            parts.append(f"fit {column.best_fit}")
     elif column.date_range is not None:
         parts.append(f"{column.date_range[0]} .. {column.date_range[1]}")
     elif column.top_values:

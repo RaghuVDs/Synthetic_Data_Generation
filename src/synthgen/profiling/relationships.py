@@ -24,7 +24,7 @@ from synthgen.profiling.batching import batched_sample
 from synthgen.profiling.behaviour import spread
 from synthgen.profiling.categorical import zipf_exponent
 from synthgen.profiling.fitting import fit_counts, lognorm_fit
-from synthgen.profiling.inference import infer_type, semantic_type, sensitivity_for
+from synthgen.profiling.inference import infer_type, semantic_type
 from synthgen.profiling.models import (
     ChildrenPerParent,
     ColumnProfile,
@@ -32,6 +32,7 @@ from synthgen.profiling.models import (
     Measured,
     StatSource,
 )
+from synthgen.profiling.privacy import classify
 from synthgen.profiling.relation_models import (
     CountSummary,
     ParentCategory,
@@ -172,7 +173,7 @@ def _parent_columns(inputs: RelationshipInputs, meta: TableMeta) -> tuple[list[s
         values = [v for v in sample.column(column.name).to_pylist() if v is not None]
         inferred = infer_type(values)
         semantic = semantic_type(values, inferred)
-        if sensitivity_for(column.sensitivity, semantic) is Sensitivity.SENSITIVE:
+        if classify(column.sensitivity, semantic) is Sensitivity.SENSITIVE:
             continue
         if inferred in TEMPORAL:
             dates.append(column.name)

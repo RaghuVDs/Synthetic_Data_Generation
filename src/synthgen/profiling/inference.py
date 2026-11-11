@@ -1,4 +1,4 @@
-"""Type, semantic type, sensitivity and mask inference from sampled values (SPEC 8.3 B, D)."""
+"""Type, semantic type and mask inference from sampled values (SPEC 8.3 B, D)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ import re
 from collections import Counter
 from collections.abc import Callable, Sequence
 
-from synthgen.domain.metadata import Sensitivity
 from synthgen.profiling.models import InferredType, MaskShare
 
 Value = str | int | float | bool | bytes
@@ -18,7 +17,6 @@ PHONE_RE = re.compile(r"^\+?[\d\s().-]{7,}$")
 CARD_RE = re.compile(r"^\d{13,19}$")
 SEMANTIC_MATCH_SHARE = 0.9
 """Share of values that must match a format for the column to get that semantic type."""
-SENSITIVE_SEMANTICS = frozenset({"email", "phone", "card_number"})
 BOOLEAN_INTS = frozenset({0, 1})
 
 
@@ -71,13 +69,6 @@ def semantic_type(values: Sequence[Value], inferred: InferredType) -> str | None
         if sum(check(t) for t in texts) >= SEMANTIC_MATCH_SHARE * len(texts):
             return name
     return None
-
-
-def sensitivity_for(tag: Sensitivity | None, semantic: str | None) -> Sensitivity:
-    """Metadata tags win; otherwise recognised personal formats are sensitive (SPEC 8.3)."""
-    if tag is not None:
-        return tag
-    return Sensitivity.SENSITIVE if semantic in SENSITIVE_SEMANTICS else Sensitivity.PUBLIC
 
 
 def mask(text: str) -> str:
