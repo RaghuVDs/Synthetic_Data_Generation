@@ -8,7 +8,18 @@ import numpy as np
 from numpy.typing import NDArray
 
 from synthgen.config import ProfilingSettings
-from synthgen.profiling.models import Histogram, Measured, NumericProfile, StatSource
+from synthgen.profiling.fitting import fit_counts, fit_distributions
+from synthgen.profiling.models import (
+    CountFits,
+    DistributionFit,
+    Histogram,
+    Measured,
+    NormalityTests,
+    NumericProfile,
+    NumericShape,
+    StatSource,
+)
+from synthgen.profiling.numeric_shape import constant_step, normality, numeric_shape
 
 MAX_DECIMALS = 6
 
@@ -41,9 +52,22 @@ def decimal_places(values: NDArray[np.float64]) -> int:
 
 
 def numeric_profile(
-    moments: SqlMoments, sample: NDArray[np.float64], settings: ProfilingSettings
+    moments: SqlMoments,
+    sample: NDArray[np.float64],
+    settings: ProfilingSettings,
+    *,
+    distinct: int,
+    full_fit: bool,
 ) -> NumericProfile:
-    """Numeric statistics from exact moments and a non-empty, null-free sample."""
+    """Numeric statistics from exact moments and a non-empty, null-free sample.
+
+    `distinct` is the exact distinct count. `full_fit` adds iterative distribution fits, KDE modes
+    and normality tests; tables with more than `max_fit_columns` numeric columns skip them.
+    """
+    subsample = sample[: settings.fit_sample_size]
+    step = constant_step(moments.count, distinct, moments.minimum, moments.maximum)
+    tests = normality(subsample, settings) if full_fit else None
+    counts_fit = fit_counts(subsample)
     n = moments.count
     mean = moments.total / n
     variance = max(0.0, (moments.sum_squares - n * mean * mean) / (n - 1)) if n > 1 else 0.0
@@ -79,4 +103,17 @@ def numeric_profile(
             value=bool(np.all(np.mod(sample, 1) == 0)), source=StatSource.SAMPLE
         ),
         decimal_places=Measured[int](value=decimal_places(sample), source=StatSource.SAMPLE),
+        shape=Measured[NumericShape](
+            value=numeric_shape(sample, subsample, step, settings, full=full_fit),
+            source=StatSource.SAMPLE,
+        ),
+        fits=Measured[list[DistributionFit]](
+            value=fit_distributions(subsample, full=full_fit), source=StatSource.SAMPLE
+        ),
+        normality=None
+        if tests is None
+        else Measured[NormalityTests](value=tests, source=StatSource.SAMPLE),
+        counts=None
+        if counts_fit is None
+        else Measured[CountFits](value=counts_fit, source=StatSource.SAMPLE),
     )

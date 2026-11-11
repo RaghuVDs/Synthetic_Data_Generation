@@ -62,8 +62,56 @@ class Histogram(StrictModel):
     counts: list[int]
 
 
+class DistributionFit(StrictModel):
+    """One fitted candidate: SciPy name and parameters, AIC and KS goodness of fit."""
+
+    name: str
+    params: list[float]
+    aic: float
+    ks_statistic: float
+    ks_pvalue: float
+
+
+class CountFits(StrictModel):
+    """Poisson and negative-binomial fits for non-negative integer data."""
+
+    poisson_lambda: float
+    poisson_aic: float
+    nbinom_n: float | None
+    nbinom_p: float | None
+    nbinom_aic: float | None
+
+
+class NumericShape(StrictModel):
+    """Spread, shape, round numbers, outliers, modes, step and first digits of a numeric column."""
+
+    range: float
+    iqr: float
+    mad: float
+    variation: float | None
+    skew: float
+    kurtosis: float
+    round_rates: list[tuple[float, float]]
+    iqr_outlier_rate: float
+    zscore_outlier_rate: float
+    modified_z_outlier_rate: float
+    modes: list[float]
+    constant_step: float | None
+    benford_pvalue: float | None
+
+
+class NormalityTests(StrictModel):
+    """p-values of the normality tests (Shapiro on at most `shapiro_max_rows` values)."""
+
+    shapiro_pvalue: float
+    normaltest_pvalue: float
+    anderson_statistic: float
+    anderson_pvalue: float
+    jarque_bera_pvalue: float
+
+
 class NumericProfile(StrictModel):
-    """Core numeric statistics (SPEC 8.3 C)."""
+    """Numeric statistics (SPEC 8.3 C)."""
 
     minimum: Measured[float]
     maximum: Measured[float]
@@ -78,6 +126,15 @@ class NumericProfile(StrictModel):
     negative_rate: Measured[float]
     is_integer: Measured[bool]
     decimal_places: Measured[int]
+    shape: Measured[NumericShape]
+    fits: Measured[list[DistributionFit]]
+    normality: Measured[NormalityTests] | None
+    counts: Measured[CountFits] | None
+
+    @property
+    def best_fit(self) -> str | None:
+        """Name of the lowest-AIC distribution, if any fitted."""
+        return self.fits.value[0].name if self.fits.value else None
 
 
 class CategoricalProfile(StrictModel):

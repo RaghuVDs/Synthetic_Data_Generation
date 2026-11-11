@@ -24,7 +24,9 @@ def _moments(values: np.ndarray) -> SqlMoments:
 
 def test_numeric_profile_matches_numpy(profiling_settings: ProfilingSettings) -> None:
     values = np.random.default_rng(1).lognormal(3.0, 0.7, 5_000).round(2)
-    profile = numeric_profile(_moments(values), values, profiling_settings)
+    profile = numeric_profile(
+        _moments(values), values, profiling_settings, distinct=values.size, full_fit=True
+    )
     assert profile.mean.value == pytest.approx(values.mean())
     assert profile.std.value == pytest.approx(values.std(ddof=1))
     assert profile.minimum.source is StatSource.SQL
@@ -41,7 +43,9 @@ def test_numeric_profile_matches_numpy(profiling_settings: ProfilingSettings) ->
 
 def test_numeric_rates_and_integers(profiling_settings: ProfilingSettings) -> None:
     values = np.array([-2.0, 0.0, 0.0, 3.0, 5.0])
-    profile = numeric_profile(_moments(values), values, profiling_settings)
+    profile = numeric_profile(
+        _moments(values), values, profiling_settings, distinct=values.size, full_fit=True
+    )
     assert profile.zero_rate.value == pytest.approx(0.4)
     assert profile.negative_rate.value == pytest.approx(0.2)
     assert profile.is_integer.value

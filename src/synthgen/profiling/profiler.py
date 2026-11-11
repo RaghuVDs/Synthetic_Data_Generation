@@ -77,7 +77,11 @@ def profile_table(  # noqa: PLR0913 - the full context of one profiling run
         batch=batch,
     )
     facts = _facts(connector, meta, sample, batch)
-    columns = [_column(connector, meta.name, f, rows, settings) for f in facts]
+    numeric_columns = sum(f.inferred in NUMERIC for f in facts)
+    ctx = TableContext(
+        connector, meta.name, rows, settings, numeric_columns <= settings.max_fit_columns
+    )
+    columns = [_column(ctx, f) for f in facts]
     return TableProfile(
         source=source,
         table=meta.name,
@@ -129,9 +133,19 @@ def _facts(
     ]
 
 
-def _column(
-    connector: Connector, table: str, facts: ColumnFacts, rows: int, settings: ProfilingSettings
-) -> ColumnProfile:
+@dataclass(frozen=True)
+class TableContext:
+    """What every column of one table is profiled with."""
+
+    connector: Connector
+    table: str
+    rows: int
+    settings: ProfilingSettings
+    full_fit: bool
+
+
+def _column(ctx: TableContext, facts: ColumnFacts) -> ColumnProfile:
+    connector, table, rows, settings = ctx.connector, ctx.table, ctx.rows, ctx.settings
     count, distinct = int(facts.agg["count"]), int(facts.agg["count_distinct"])
     semantic = semantic_type(facts.values, facts.inferred)
     sensitivity = sensitivity_for(facts.meta.sensitivity, semantic)
@@ -160,7 +174,11 @@ def _column(
             value=sum(not t.strip() for t in texts) / len(texts) if texts else 0.0, source=sampled
         ),
         numeric=numeric_profile(
-            _moments(facts.agg), np.asarray(facts.values, dtype=np.float64), settings
+            _moments(facts.agg),
+            np.asarray(facts.values, dtype=np.float64),
+            settings,
+            distinct=distinct,
+            full_fit=ctx.full_fit,
         )
         if usable and facts.inferred in NUMERIC
         else None,

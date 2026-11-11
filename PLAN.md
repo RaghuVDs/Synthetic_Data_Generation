@@ -468,7 +468,7 @@ confirmed or corrected it moves to section 3.
 - **Goal:** complete groups C–I, sensitivity classes, cache and cards.
 - **Spec sections:** 8.3, 6, 4.4 (card size).
 - **Tasks:**
-  - [ ] T4.1 Numeric C complete: `profiling/numeric.py`, `profiling/fitting.py`
+  - [x] T4.1 Numeric C complete: `profiling/numeric.py`, `profiling/fitting.py`
     (AIC + KS ranking, normality tests, KDE modes, outliers, constant step,
     Benford, Poisson/NB). Tests recover known parameters.
   - [ ] T4.2 Categorical and text D complete: `profiling/categorical.py`,

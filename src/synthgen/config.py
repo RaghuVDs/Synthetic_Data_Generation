@@ -70,6 +70,13 @@ class ProfilingSettings(_Group):
     rare_value_share: float = Ratio
     internal_min_count: int = Field(ge=1)
     shapiro_max_rows: int = Field(ge=3)
+    fit_sample_size: int = Field(ge=10)
+    max_fit_columns: int = Field(ge=0)
+    kde_points: int = Field(ge=8)
+    zscore_limit: float = Field(gt=0)
+    modified_z_limit: float = Field(gt=0)
+    iqr_fence: float = Field(gt=0)
+    round_bases: tuple[float, ...]
     card_top_values: int = Field(ge=1)
     mapper_batch_tables: int = Field(ge=1)
     mapper_batch_columns: int = Field(ge=1)

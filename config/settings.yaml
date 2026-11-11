@@ -34,6 +34,13 @@ profiling:
   rare_value_share: 0.001
   internal_min_count: 10
   shapiro_max_rows: 5000
+  fit_sample_size: 2000               # values used for distribution fits, KDE and normality tests
+  max_fit_columns: 200                # above this many numeric columns only closed-form fits run
+  kde_points: 512
+  zscore_limit: 3.0
+  modified_z_limit: 3.5
+  iqr_fence: 1.5
+  round_bases: [1, 5, 10, 100, 1000]
   card_top_values: 5
   mapper_batch_tables: 15
   mapper_batch_columns: 250           # columns per semantic-mapper call; wider tables are sliced
