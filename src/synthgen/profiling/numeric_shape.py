@@ -12,7 +12,7 @@ from numpy.typing import NDArray
 from scipy import signal, stats
 
 from synthgen.config import ProfilingSettings
-from synthgen.profiling.models import NormalityTests, NumericShape
+from synthgen.profiling.shape_models import NormalityTests, NumericShape
 
 FloatArray = NDArray[np.float64]
 MIN_FOR_TESTS = 20

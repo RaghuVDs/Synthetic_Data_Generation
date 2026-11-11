@@ -15,14 +15,8 @@ from datetime import datetime
 import numpy as np
 
 from synthgen.profiling.inference import CARD_RE, EMAIL_RE, PHONE_RE, luhn_valid, mask, mask_shares
-from synthgen.profiling.models import (
-    Measured,
-    Spread,
-    StatSource,
-    TextDetails,
-    TextFormat,
-    TextShape,
-)
+from synthgen.profiling.models import Measured, StatSource, TextShape
+from synthgen.profiling.shape_models import Spread, TextDetails, TextFormat
 
 MASK_LIMIT = 20
 LENGTH_PERCENTILES = (5.0, 50.0, 95.0)

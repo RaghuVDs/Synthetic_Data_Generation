@@ -22,18 +22,19 @@ from synthgen.domain.ports import Connector
 from synthgen.domain.query import AggExpr, AggFunc
 from synthgen.profiling.batching import batched_aggregate, batched_sample, sample_rows
 from synthgen.profiling.categorical import categorical_profile, sample_counts
+from synthgen.profiling.cross_column import cross_column_profile
 from synthgen.profiling.inference import Value, infer_type, semantic_type, sensitivity_for
 from synthgen.profiling.models import (
     CategoricalProfile,
-    ChildrenPerParent,
     ColumnProfile,
     InferredType,
     Measured,
     StatSource,
     TableProfile,
-    TextFormat,
 )
 from synthgen.profiling.numeric import SqlMoments, numeric_profile
+from synthgen.profiling.relationships import children_per_parent
+from synthgen.profiling.shape_models import TextFormat
 from synthgen.profiling.temporal import temporal_profile
 from synthgen.profiling.text import text_format, text_shape
 
@@ -105,8 +106,9 @@ def profile_table(  # noqa: PLR0913 - the full context of one profiling run
         ),
         sample_rows=sample.num_rows,
         columns=columns,
+        cross_column=cross_column_profile(sample, columns, _keys(meta, relationships), settings),
         relationships=[
-            _children_per_parent(connector, r)
+            children_per_parent(connector, r)
             for r in relationships
             if r.child_table == meta.name and not r.is_self_reference
         ],
@@ -263,35 +265,14 @@ def _primary_key_unique(
     return Measured[bool](value=keys[0].distinct_count.value == rows, source=StatSource.DERIVED)
 
 
+def _keys(meta: TableMeta, relationships: Sequence[Relationship]) -> set[str]:
+    """Primary-key, declared-unique and foreign-key columns: identifiers, not measurements."""
+    keys = {c.name for c in meta.columns if c.primary_key or c.unique}
+    return keys | {r.child_column for r in relationships if r.child_table == meta.name}
+
+
 def _duplicate_rate(sample: pa.Table, columns: list[str]) -> float:
     if not columns or sample.num_rows == 0:
         return 0.0
     rows = list(zip(*(sample.column(c).to_pylist() for c in columns), strict=True))
     return 1.0 - len(set(rows)) / len(rows)
-
-
-def _children_per_parent(connector: Connector, rel: Relationship) -> ChildrenPerParent:
-    """Children per parent row (including parents with none) and orphan child rows, via SQL."""
-    n = AggExpr(func=AggFunc.COUNT, column=None, alias="n")
-    children = {
-        r[rel.child_column]: int(r["n"])
-        for r in connector.aggregate(rel.child_table, [n], group_by=[rel.child_column])
-        if r[rel.child_column] is not None
-    }
-    parents = [
-        r[rel.parent_column]
-        for r in connector.aggregate(rel.parent_table, [n], group_by=[rel.parent_column])
-    ]
-    known = set(parents)
-    per_parent = Counter(children.get(key, 0) for key in parents)
-    return ChildrenPerParent(
-        child_column=rel.child_column,
-        parent_table=rel.parent_table,
-        parent_column=rel.parent_column,
-        counts=Measured[list[tuple[int, int]]](
-            value=sorted(per_parent.items()), source=StatSource.SQL
-        ),
-        orphan_rows=Measured[int](
-            value=sum(c for key, c in children.items() if key not in known), source=StatSource.SQL
-        ),
-    )

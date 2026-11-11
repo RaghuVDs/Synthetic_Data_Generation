@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from synthgen.config import ProfilingSettings
-from synthgen.profiling.models import Granularity, TemporalShape
+from synthgen.profiling.shape_models import Granularity, TemporalShape
 from synthgen.profiling.temporal import parse_times, temporal_profile
 from synthgen.profiling.temporal_series import (
     daily_counts,

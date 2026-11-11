@@ -11,7 +11,7 @@ from scipy import signal, stats
 
 from synthgen.config import ProfilingSettings
 from synthgen.profiling.behaviour import spread
-from synthgen.profiling.models import Gaps, Granularity, Growth, Seasonality, Trend
+from synthgen.profiling.shape_models import Gaps, Granularity, Growth, Seasonality, Trend
 
 Times = NDArray[np.datetime64]
 SECONDS_PER_DAY = 86_400

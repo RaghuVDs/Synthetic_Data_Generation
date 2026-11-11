@@ -9,7 +9,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from synthgen.domain.base import StrictModel
-from synthgen.profiling.models import Spread
+from synthgen.profiling.shape_models import Spread
 
 SECONDS_PER_HOUR = 3_600
 BURST_WINDOWS_HOURS = (1, 24)

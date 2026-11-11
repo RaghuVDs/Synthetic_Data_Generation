@@ -47,6 +47,13 @@ profiling:
   max_series_months: 120              # longer date ranges count rows per year instead
   min_series_days: 14                 # shortest daily series for trend and seasonality
   max_series_days: 3660               # longer ranges skip trend and seasonality
+  max_pair_columns: 100               # columns entering pairwise statistics (F), by role and variance
+  pair_sample_size: 20000             # rows used for pairwise statistics and rules
+  max_pair_levels: 50                 # categorical columns with more levels skip association tests
+  strong_association: 0.3             # |rho|, Cramer's V, correlation ratio or null Jaccard to keep a pair
+  rule_min_share: 0.999               # share of rows a rule must hold on to be recorded
+  max_arithmetic_columns: 30          # numeric columns searched for c = a + b and c = a * b
+  max_conditional_levels: 10          # levels kept in conditional distributions
   card_top_values: 5
   mapper_batch_tables: 15
   mapper_batch_columns: 250           # columns per semantic-mapper call; wider tables are sliced

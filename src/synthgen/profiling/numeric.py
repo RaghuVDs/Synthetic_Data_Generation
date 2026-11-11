@@ -9,17 +9,9 @@ from numpy.typing import NDArray
 
 from synthgen.config import ProfilingSettings
 from synthgen.profiling.fitting import fit_counts, fit_distributions
-from synthgen.profiling.models import (
-    CountFits,
-    DistributionFit,
-    Histogram,
-    Measured,
-    NormalityTests,
-    NumericProfile,
-    NumericShape,
-    StatSource,
-)
+from synthgen.profiling.models import Histogram, Measured, NumericProfile, StatSource
 from synthgen.profiling.numeric_shape import constant_step, normality, numeric_shape
+from synthgen.profiling.shape_models import CountFits, DistributionFit, NormalityTests, NumericShape
 
 MAX_DECIMALS = 6
 

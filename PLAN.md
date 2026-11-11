@@ -477,7 +477,7 @@ confirmed or corrected it moves to section 3.
   - [x] T4.3 Date and time E complete: `profiling/temporal.py` (granularity,
     `linregress` trend, periodogram, gaps, future/sentinel, weekend and
     business hours). Tests.
-  - [ ] T4.4 Cross-column F: `profiling/cross_column.py`. Tests (known
+  - [x] T4.4 Cross-column F: `profiling/cross_column.py`. Tests (known
     correlations, FDs, a ≤ b, c = a + b, null co-occurrence). Wide tables:
     pairwise statistics limited to `profiling.max_pair_columns` columns chosen
     by role and variance, so 3,000 columns never mean 4.5 million pairs.

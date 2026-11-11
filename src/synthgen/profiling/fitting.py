@@ -15,7 +15,7 @@ import numpy as np
 from numpy.typing import NDArray
 from scipy import stats
 
-from synthgen.profiling.models import CountFits, DistributionFit
+from synthgen.profiling.shape_models import CountFits, DistributionFit
 
 FloatArray = NDArray[np.float64]
 Frozen = stats.rv_continuous  # the distribution family; params come separately

@@ -9,13 +9,8 @@ import numpy as np
 from numpy.typing import NDArray
 
 from synthgen.config import ProfilingSettings
-from synthgen.profiling.models import (
-    Granularity,
-    Measured,
-    StatSource,
-    TemporalProfile,
-    TemporalShape,
-)
+from synthgen.profiling.models import Measured, StatSource, TemporalProfile
+from synthgen.profiling.shape_models import Granularity, TemporalShape
 from synthgen.profiling.temporal_series import (
     daily_counts,
     gaps,
