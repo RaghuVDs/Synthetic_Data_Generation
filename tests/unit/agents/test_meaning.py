@@ -117,8 +117,8 @@ def plan(**changes: Any) -> ScenarioPlan:
 
 
 def test_plan_references() -> None:
-    assert check_plan(plan(), COLUMNS, frozenset()) == []
-    assert check_plan(plan(template_ref="t.x"), COLUMNS, frozenset({"t.x"})) == []
+    assert check_plan(plan(), COLUMNS, frozenset(), set()) == []
+    assert check_plan(plan(template_ref="t.x"), COLUMNS, frozenset({"t.x"}), set()) == []
     problems = check_plan(
         plan(
             tables=["ghosts"],
@@ -127,13 +127,14 @@ def test_plan_references() -> None:
         ),
         COLUMNS,
         frozenset(),
+        set(),
     )
     assert problems == [
         "s: unknown table 'ghosts'",
         "s: unknown column orders.z",
         "s: unknown template 'missing'",
     ]
-    assert check_plan(ScenarioPlan(scenarios=[], assumptions=[]), COLUMNS, frozenset()) == [
+    assert check_plan(ScenarioPlan(scenarios=[], assumptions=[]), COLUMNS, frozenset(), set()) == [
         "the plan has no scenarios"
     ]
 
@@ -186,4 +187,16 @@ def test_summary_numbers_only_through_placeholders() -> None:
     ]
     assert check_summary(Summary(text="{made_up}", caveats=["fine"]), names) == [
         "unknown metric {made_up}"
+    ]
+
+
+def test_plan_must_not_plan_typical_data_or_set_labels() -> None:
+    labelled = plan(
+        levers=[{"table": "orders", "column": "flag", "primitive": "value_shift", "change": "x"}]
+    )
+    assert check_plan(labelled, COLUMNS, frozenset(), {("orders", "flag")}) == [
+        "s: orders.flag is a label; change the data columns that make the label true"
+    ]
+    assert check_plan(plan(category="typical"), COLUMNS, frozenset(), set()) == [
+        "s: typical data is the remainder after all shares; do not plan it"
     ]

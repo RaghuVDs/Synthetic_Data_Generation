@@ -101,6 +101,7 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
     if replanning:
         counters = counters.model_copy(update={"plan_rounds": counters.plan_rounds + 1})
     columns = job_columns(state, deps)
+    labels = {(t.table, t.label_column) for t in semantic_map.tables if t.label_column}
     profiles = {name: load_profile(state, deps, name) for name in table_set.order}
     limit = deps.settings.profiling.mapper_batch_tables
     blocks = {
@@ -131,7 +132,7 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
         ROLE,
         blocks,
         ScenarioPlan,
-        meaning=lambda value: check_plan(value, columns, deps.templates.ids),
+        meaning=lambda value: check_plan(value, columns, deps.templates.ids, labels),
     )
     deps.artifacts.put(state["job_id"], ArtifactKind.PLAN, plan)
     feasibility = check_feasibility(plan, semantic_map, columns)

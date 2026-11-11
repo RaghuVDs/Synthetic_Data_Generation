@@ -11,7 +11,7 @@ from collections.abc import Mapping, Sequence, Set
 
 from synthgen.domain.intent import TestIntent
 from synthgen.domain.patch import SpecPatch
-from synthgen.domain.plan import ScenarioPlan
+from synthgen.domain.plan import ScenarioCategory, ScenarioPlan
 from synthgen.domain.semantic import SemanticMap
 from synthgen.domain.summary import Summary
 from synthgen.spec.models import GenerationSpec, OverlaySet
@@ -21,6 +21,8 @@ Columns = Mapping[str, Sequence[str]]
 """Table name -> its column names, in order."""
 PLACEHOLDER = re.compile(r"\{([a-z0-9_]+)\}")
 DIGIT = re.compile(r"\d")
+TYPICAL_IS_REMAINDER = "typical data is the remainder after all shares; do not plan it"
+LABELS_FOLLOW_DATA = "change the data columns that make the label true"
 
 
 def _missing(columns: Columns, table: str, column: str | None) -> str | None:
@@ -65,12 +67,23 @@ def check_semantic_map(semantic: SemanticMap, columns: Columns) -> list[str]:
     return problems
 
 
-def check_plan(plan: ScenarioPlan, columns: Columns, template_ids: Set[str]) -> list[str]:
-    """Scenarios, levers and signatures must name real tables and columns."""
+def check_plan(
+    plan: ScenarioPlan, columns: Columns, template_ids: Set[str], labels: Set[tuple[str, str]]
+) -> list[str]:
+    """Real tables and columns; no typical scenarios; levers change data, never label columns."""
     problems: list[str] = []
     if not plan.scenarios:
         problems.append("the plan has no scenarios")
     for s in plan.scenarios:
+        if s.category is ScenarioCategory.TYPICAL:
+            problems.append(
+                f"{s.name}: typical data is the remainder after all shares; do not plan it"
+            )
+        problems += [
+            f"{s.name}: {lv.table}.{lv.column} is a label; {LABELS_FOLLOW_DATA}"
+            for lv in s.levers
+            if (lv.table, lv.column) in labels
+        ]
         problems += [f"{s.name}: {p}" for t in s.tables if (p := _missing(columns, t, None))]
         problems += [
             f"{s.name}: {p}" for lv in s.levers if (p := _missing(columns, lv.table, lv.column))
