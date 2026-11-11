@@ -41,6 +41,12 @@ profiling:
   modified_z_limit: 3.5
   iqr_fence: 1.5
   round_bases: [1, 5, 10, 100, 1000]
+  sentinel_dates: ["0001-01-01", "1900-01-01", "1970-01-01", "2099-12-31", "9999-12-31"]
+  weekend_days: [5, 6]                # Monday = 0
+  business_hours: [9, 17]             # start inclusive, end exclusive
+  max_series_months: 120              # longer date ranges count rows per year instead
+  min_series_days: 14                 # shortest daily series for trend and seasonality
+  max_series_days: 3660               # longer ranges skip trend and seasonality
   card_top_values: 5
   mapper_batch_tables: 15
   mapper_batch_columns: 250           # columns per semantic-mapper call; wider tables are sliced

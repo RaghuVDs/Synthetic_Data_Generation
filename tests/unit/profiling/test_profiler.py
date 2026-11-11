@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,8 @@ from synthgen.metadata.provider import SourceDoc, YamlMetadataProvider
 from synthgen.profiling.card import build_card, card_text
 from synthgen.profiling.models import InferredType, StatSource, TableProfile
 from synthgen.profiling.profiler import profile_table, schema_hash
+
+PROFILE_NOW = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 @pytest.fixture(scope="module")
@@ -46,6 +49,7 @@ def _profile(
         provider.relationships(),
         settings=settings,
         seed=1,
+        now=PROFILE_NOW,
     )
 
 

@@ -474,7 +474,7 @@ confirmed or corrected it moves to section 3.
   - [x] T4.2 Categorical and text D complete: `profiling/categorical.py`,
     `profiling/text.py` (Zipf exponent, masks, prefixes/suffixes, Luhn/email
     validity, case, words). Tests.
-  - [ ] T4.3 Date and time E complete: `profiling/temporal.py` (granularity,
+  - [x] T4.3 Date and time E complete: `profiling/temporal.py` (granularity,
     `linregress` trend, periodogram, gaps, future/sentinel, weekend and
     business hours). Tests.
   - [ ] T4.4 Cross-column F: `profiling/cross_column.py`. Tests (known

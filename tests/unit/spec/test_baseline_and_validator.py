@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from contextlib import closing
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,8 @@ from synthgen.spec.baseline import BaselineInputs, compile_baseline
 from synthgen.spec.merge import merge_overlays
 from synthgen.spec.models import GenerationSpec, ScenarioSpec
 from synthgen.spec.validator import validate_spec
+
+PROFILE_NOW = datetime(2026, 1, 1, tzinfo=UTC)
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -54,7 +57,13 @@ def baseline(
     table_set = build_table_set(["orders"], [t.name for t in provider.tables()], rels)
     profiles = {
         t: profile_table(
-            "shop", connector, provider.table(t), rels, settings=profiling_settings, seed=1
+            "shop",
+            connector,
+            provider.table(t),
+            rels,
+            settings=profiling_settings,
+            seed=1,
+            now=PROFILE_NOW,
         )
         for t in table_set.order
     }
@@ -226,7 +235,13 @@ def test_declared_unique_text_uses_masks_and_observed_uniqueness_is_ignored(
     with closing(SqliteConnector(path)) as connector:
         provider = YamlMetadataProvider(SourceDoc(source="names"), connector)
         profile = profile_table(
-            "names", connector, provider.table("shops"), [], settings=profiling_settings, seed=1
+            "names",
+            connector,
+            provider.table("shops"),
+            [],
+            settings=profiling_settings,
+            seed=1,
+            now=PROFILE_NOW,
         )
         table_set = build_table_set(["shops"], ["shops"], [])
         spec = compile_baseline(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,8 @@ from synthgen.scenarios.feasibility import check_feasibility
 from synthgen.scenarios.primitives import RULES, Construct, available_constructs
 from synthgen.scenarios.profile_derived import profile_candidates
 from synthgen.scenarios.templates.loader import BUILT_IN, TemplateLibrary
+
+PROFILE_NOW = datetime(2026, 1, 1, tzinfo=UTC)
 
 COLUMNS = {"orders": ["id", "customer_id", "amount", "placed", "paid"], "customers": ["id", "tier"]}
 SEMANTIC = SemanticMap.model_validate(
@@ -135,6 +138,7 @@ def shop_profiles(
             provider.relationships(),
             settings=profiling_settings,
             seed=0,
+            now=PROFILE_NOW,
         )
         for t in ("customers", "orders")
     }

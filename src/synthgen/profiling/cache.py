@@ -72,5 +72,6 @@ def profile_version(
         request.relationships,
         settings=settings,
         seed=settings.sample_seed,
+        now=request.now,
     )
     return cache.put(request.source, request.meta.name, digest, profile)

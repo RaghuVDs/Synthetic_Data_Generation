@@ -10,6 +10,7 @@ import json
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 import numpy as np
@@ -65,8 +66,12 @@ def profile_table(  # noqa: PLR0913 - the full context of one profiling run
     *,
     settings: ProfilingSettings,
     seed: int,
+    now: datetime,
 ) -> TableProfile:
-    """Compute groups A to E (core) and children-per-parent shapes for one table."""
+    """Compute groups A to E and children-per-parent shapes for one table.
+
+    `now` is the reference time for future-date rates, injected so profiles are reproducible.
+    """
     rows = connector.row_count(meta.name)
     names = [c.name for c in meta.columns]
     batch = settings.max_select_columns
@@ -81,7 +86,7 @@ def profile_table(  # noqa: PLR0913 - the full context of one profiling run
     facts = _facts(connector, meta, sample, batch)
     numeric_columns = sum(f.inferred in NUMERIC for f in facts)
     ctx = TableContext(
-        connector, meta.name, rows, settings, numeric_columns <= settings.max_fit_columns
+        connector, meta.name, rows, settings, numeric_columns <= settings.max_fit_columns, now
     )
     columns = [_column(ctx, f) for f in facts]
     return TableProfile(
@@ -144,6 +149,7 @@ class TableContext:
     rows: int
     settings: ProfilingSettings
     full_fit: bool
+    now: datetime
 
 
 def _column(ctx: TableContext, facts: ColumnFacts) -> ColumnProfile:
@@ -193,7 +199,14 @@ def _column(ctx: TableContext, facts: ColumnFacts) -> ColumnProfile:
         text_format=Measured[TextFormat](value=text_format(texts), source=StatSource.SAMPLE)
         if usable and facts.inferred is InferredType.TEXT
         else None,
-        temporal=temporal_profile(str(facts.agg["min"]), str(facts.agg["max"]), texts)
+        temporal=temporal_profile(
+            str(facts.agg["min"]),
+            str(facts.agg["max"]),
+            texts,
+            count=count,
+            now=ctx.now,
+            settings=settings,
+        )
         if usable and facts.inferred in TEMPORAL
         else None,
     )

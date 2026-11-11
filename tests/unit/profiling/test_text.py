@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,8 @@ from synthgen.metadata.provider import SourceDoc, YamlMetadataProvider
 from synthgen.profiling.categorical import zipf_exponent
 from synthgen.profiling.profiler import profile_table
 from synthgen.profiling.text import common_prefix, text_details, text_format, validity
+
+PROFILE_NOW = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 def test_text_details() -> None:
@@ -63,7 +66,13 @@ def test_profiler_keeps_formats_out_of_sensitive_columns(
     try:
         provider = YamlMetadataProvider(SourceDoc(source="shop"), connector)
         profile = profile_table(
-            "shop", connector, provider.table("customers"), [], settings=profiling_settings, seed=1
+            "shop",
+            connector,
+            provider.table("customers"),
+            [],
+            settings=profiling_settings,
+            seed=1,
+            now=PROFILE_NOW,
         )
     finally:
         connector.close()

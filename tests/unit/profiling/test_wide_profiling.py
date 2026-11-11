@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
 
@@ -14,6 +15,8 @@ from synthgen.metadata.provider import SourceDoc, YamlMetadataProvider
 from synthgen.profiling.batching import batched_sample, sample_rows
 from synthgen.profiling.models import InferredType
 from synthgen.profiling.profiler import profile_table
+
+PROFILE_NOW = datetime(2026, 1, 1, tzinfo=UTC)
 
 ROWS = 40
 
@@ -39,7 +42,13 @@ def profile(path: Path, settings: ProfilingSettings) -> tuple[int, int]:
     try:
         provider = YamlMetadataProvider(SourceDoc(source="wide"), connector)
         result = profile_table(
-            "wide", connector, provider.table("wide"), [], settings=settings, seed=1
+            "wide",
+            connector,
+            provider.table("wide"),
+            [],
+            settings=settings,
+            seed=1,
+            now=PROFILE_NOW,
         )
     finally:
         connector.close()

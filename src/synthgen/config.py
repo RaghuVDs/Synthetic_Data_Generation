@@ -77,6 +77,12 @@ class ProfilingSettings(_Group):
     modified_z_limit: float = Field(gt=0)
     iqr_fence: float = Field(gt=0)
     round_bases: tuple[float, ...]
+    sentinel_dates: tuple[str, ...]
+    weekend_days: tuple[int, ...]
+    business_hours: tuple[int, int]
+    max_series_months: int = Field(ge=1)
+    min_series_days: int = Field(ge=3)
+    max_series_days: int = Field(ge=3)
     card_top_values: int = Field(ge=1)
     mapper_batch_tables: int = Field(ge=1)
     mapper_batch_columns: int = Field(ge=1)

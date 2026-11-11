@@ -188,15 +188,71 @@ class TextFormat(StrictModel):
     """Positions holding the same character in nearly every value of the dominant mask."""
 
 
+class Granularity(StrEnum):
+    """Finest unit in which a date or time column varies."""
+
+    SECOND = "second"
+    MINUTE = "minute"
+    HOUR = "hour"
+    DAY = "day"
+    MONTH = "month"
+
+
+class Trend(StrictModel):
+    """Linear trend of daily counts; slope is relative to the mean daily count."""
+
+    relative_slope_per_day: float
+    pvalue: float
+    r_squared: float
+
+
+class Seasonality(StrictModel):
+    """Strongest periodogram peak of the daily counts."""
+
+    period_days: float
+    power_share: float
+
+
+class Gaps(StrictModel):
+    """Gaps between consecutive distinct values, in seconds, and the share of empty days."""
+
+    seconds: Spread
+    empty_day_rate: float
+
+
+class Growth(StrictModel):
+    """Rows per day over the range, and sampled counts per month or per year."""
+
+    rows_per_day: float
+    unit: str
+    periods: list[tuple[str, int]]
+
+
+class TemporalShape(StrictModel):
+    """Trend, seasonality, gaps, growth and calendar shares (SPEC 8.3 E)."""
+
+    granularity: Granularity
+    trend: Trend | None
+    seasonality: Seasonality | None
+    gaps: Gaps
+    growth: Growth
+    future_rate: float
+    sentinel_rate: float
+    weekend_share: float
+    business_hours_share: float | None
+
+
 class TemporalProfile(StrictModel):
-    """Core date and time statistics (SPEC 8.3 E). Counts are indexed by month, weekday, hour."""
+    """Date and time statistics (SPEC 8.3 E). Counts are indexed by month, weekday, day, hour."""
 
     minimum: Measured[str]
     maximum: Measured[str]
     span_days: Measured[float]
     month_counts: Measured[list[int]]
     weekday_counts: Measured[list[int]]
+    day_of_month_counts: Measured[list[int]]
     hour_counts: Measured[list[int]]
+    shape: Measured[TemporalShape]
 
 
 class ColumnProfile(StrictModel):

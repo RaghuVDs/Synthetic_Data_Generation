@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,8 @@ from synthgen.metadata.provider import SourceDoc, YamlMetadataProvider
 from synthgen.profiling.profiler import profile_table
 from synthgen.scenarios.templates.loader import BUILT_IN, TemplateLibrary
 
+PROFILE_NOW = datetime(2026, 1, 1, tzinfo=UTC)
+
 
 @pytest.fixture(scope="module")
 def ctx(shop_db: Path, profiling_settings: ProfilingSettings) -> Iterator[ToolContext]:
@@ -30,6 +33,7 @@ def ctx(shop_db: Path, profiling_settings: ProfilingSettings) -> Iterator[ToolCo
             provider.relationships(),
             settings=profiling_settings,
             seed=0,
+            now=PROFILE_NOW,
         )
         for t in ("customers", "orders")
     }

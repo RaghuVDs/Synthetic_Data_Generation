@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from datetime import UTC, datetime
 
 import numpy as np
 import pytest
@@ -87,9 +88,16 @@ def test_text_shape() -> None:
     assert text_shape([]).length_max.value == 0
 
 
-def test_temporal_profile() -> None:
+def test_temporal_profile(profiling_settings: ProfilingSettings) -> None:
     texts = ["2024-03-04 09:15:00", "2024-03-05 09:45:00", "2024-12-08 23:00:00"]
-    profile = temporal_profile("2024-03-04 09:15:00", "2024-12-08 23:00:00", texts)
+    profile = temporal_profile(
+        "2024-03-04 09:15:00",
+        "2024-12-08 23:00:00",
+        texts,
+        count=3,
+        now=datetime(2024, 6, 1, tzinfo=UTC),
+        settings=profiling_settings,
+    )
     assert profile.weekday_counts.value == [1, 1, 0, 0, 0, 0, 1]  # Mon, Tue, Sun
     assert profile.month_counts.value[2] == 2
     assert profile.month_counts.value[11] == 1
@@ -97,3 +105,5 @@ def test_temporal_profile() -> None:
     assert profile.hour_counts.value[23] == 1
     assert profile.span_days.value == pytest.approx(279.57, abs=0.01)
     assert profile.minimum.source is StatSource.SQL
+    assert profile.day_of_month_counts.value[3] == 1  # the 4th
+    assert profile.shape.value.future_rate == pytest.approx(1 / 3)
