@@ -6,10 +6,11 @@ import numpy as np
 import pytest
 
 from synthgen.config import ProfilingSettings
-from synthgen.profiling.categorical import categorical_profile, sample_counts, text_shape
+from synthgen.profiling.categorical import categorical_profile, sample_counts
 from synthgen.profiling.models import StatSource
 from synthgen.profiling.numeric import SqlMoments, decimal_places, numeric_profile
 from synthgen.profiling.temporal import temporal_profile
+from synthgen.profiling.text import text_shape
 
 
 def _moments(values: np.ndarray) -> SqlMoments:

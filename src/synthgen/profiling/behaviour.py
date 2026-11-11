@@ -9,19 +9,11 @@ import numpy as np
 from numpy.typing import NDArray
 
 from synthgen.domain.base import StrictModel
+from synthgen.profiling.models import Spread
 
 SECONDS_PER_HOUR = 3_600
 BURST_WINDOWS_HOURS = (1, 24)
 PERCENTILES = (50.0, 90.0, 99.0)
-
-
-class Spread(StrictModel):
-    """Median, 90th and 99th percentile, and maximum of a quantity."""
-
-    p50: float
-    p90: float
-    p99: float
-    max: float
 
 
 class BehaviourStats(StrictModel):

@@ -20,7 +20,7 @@ from synthgen.domain.metadata import ColumnMeta, Relationship, Sensitivity, Tabl
 from synthgen.domain.ports import Connector
 from synthgen.domain.query import AggExpr, AggFunc
 from synthgen.profiling.batching import batched_aggregate, batched_sample, sample_rows
-from synthgen.profiling.categorical import categorical_profile, sample_counts, text_shape
+from synthgen.profiling.categorical import categorical_profile, sample_counts
 from synthgen.profiling.inference import Value, infer_type, semantic_type, sensitivity_for
 from synthgen.profiling.models import (
     CategoricalProfile,
@@ -30,9 +30,11 @@ from synthgen.profiling.models import (
     Measured,
     StatSource,
     TableProfile,
+    TextFormat,
 )
 from synthgen.profiling.numeric import SqlMoments, numeric_profile
 from synthgen.profiling.temporal import temporal_profile
+from synthgen.profiling.text import text_format, text_shape
 
 NUMERIC = (InferredType.INTEGER, InferredType.FLOAT)
 TEMPORAL = (InferredType.DATE, InferredType.DATETIME)
@@ -188,6 +190,9 @@ def _column(ctx: TableContext, facts: ColumnFacts) -> ColumnProfile:
         if usable and facts.inferred in CATEGORICAL
         else None,
         text=text_shape(texts) if sensitive or facts.inferred is InferredType.TEXT else None,
+        text_format=Measured[TextFormat](value=text_format(texts), source=StatSource.SAMPLE)
+        if usable and facts.inferred is InferredType.TEXT
+        else None,
         temporal=temporal_profile(str(facts.agg["min"]), str(facts.agg["max"]), texts)
         if usable and facts.inferred in TEMPORAL
         else None,

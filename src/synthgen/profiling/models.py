@@ -145,15 +145,47 @@ class CategoricalProfile(StrictModel):
     entropy: Measured[float]
     normalized_entropy: Measured[float]
     rare_count: Measured[int]
+    zipf_exponent: Measured[float] | None
+
+
+class Spread(StrictModel):
+    """Median, 90th and 99th percentile, and maximum of a quantity."""
+
+    p50: float
+    p90: float
+    p99: float
+    max: float
+
+
+class TextDetails(StrictModel):
+    """Value-free text statistics: lengths, character classes, case, spaces, words, validity."""
+
+    length_percentiles: list[tuple[float, float]]
+    char_classes: list[tuple[str, float]]
+    case_styles: list[tuple[str, float]]
+    leading_space_rate: float
+    trailing_space_rate: float
+    word_count: Spread
+    validity: list[tuple[str, float]]
 
 
 class TextShape(StrictModel):
-    """Lengths and masks: value-free, so it is all a sensitive column keeps."""
+    """Lengths, masks and details: value-free, so it is all a sensitive column keeps."""
 
     length_min: Measured[int]
     length_max: Measured[int]
     length_mean: Measured[float]
     masks: Measured[list[MaskShare]]
+    details: Measured[TextDetails]
+
+
+class TextFormat(StrictModel):
+    """Fixed parts of values. Never stored for sensitive columns: a fixed part is a value."""
+
+    common_prefix: str
+    common_suffix: str
+    fixed_positions: list[tuple[int, str]]
+    """Positions holding the same character in nearly every value of the dominant mask."""
 
 
 class TemporalProfile(StrictModel):
@@ -187,6 +219,7 @@ class ColumnProfile(StrictModel):
     numeric: NumericProfile | None
     categorical: CategoricalProfile | None
     text: TextShape | None
+    text_format: Measured[TextFormat] | None
     temporal: TemporalProfile | None
 
 
