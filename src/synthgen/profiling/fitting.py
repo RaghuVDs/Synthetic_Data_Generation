@@ -117,6 +117,16 @@ def fit_distributions(x: FloatArray, *, full: bool) -> list[DistributionFit]:
     return [_with_ks(name, dist, params, aic, x) for aic, name, dist, params in keep]
 
 
+def lognorm_fit(x: FloatArray) -> DistributionFit | None:
+    """Closed-form log-normal fit of positive values; None for fewer than two distinct values."""
+    if np.min(x) <= 0 or np.unique(x).size < 2:  # noqa: PLR2004 - a spread needs two values
+        return None
+    logs = np.log(x)
+    params = (float(np.std(logs)), 0.0, float(np.exp(np.mean(logs))))
+    aic = _aic(stats.lognorm, params, x)
+    return None if aic is None else _with_ks("lognorm", stats.lognorm, params, aic, x)
+
+
 def fit_counts(x: FloatArray) -> CountFits | None:
     """Poisson and method-of-moments negative binomial, for non-negative integers only."""
     if np.min(x) < 0 or not np.all(np.mod(x, 1) == 0):

@@ -10,7 +10,12 @@ from typing import Generic, TypeVar
 
 from synthgen.domain.base import StrictModel
 from synthgen.domain.metadata import Sensitivity
-from synthgen.profiling.relation_models import CrossColumnProfile
+from synthgen.profiling.relation_models import (
+    CrossColumnProfile,
+    ParentCategory,
+    RelationshipShape,
+    TemporalOrder,
+)
 from synthgen.profiling.shape_models import (
     CountFits,
     DistributionFit,
@@ -165,6 +170,9 @@ class ChildrenPerParent(StrictModel):
     parent_column: str
     counts: Measured[list[tuple[int, int]]]
     orphan_rows: Measured[int]
+    shape: Measured[RelationshipShape]
+    temporal_orders: Measured[list[TemporalOrder]]
+    by_parent_category: Measured[list[ParentCategory]]
 
 
 class TableProfile(StrictModel):

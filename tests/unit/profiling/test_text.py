@@ -70,6 +70,7 @@ def test_profiler_keeps_formats_out_of_sensitive_columns(
             connector,
             provider.table("customers"),
             [],
+            parents={},
             settings=profiling_settings,
             seed=1,
             now=PROFILE_NOW,

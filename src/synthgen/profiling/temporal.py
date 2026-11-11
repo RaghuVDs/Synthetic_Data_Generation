@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 
 import numpy as np
+import pandas as pd
 from numpy.typing import NDArray
 
 from synthgen.config import ProfilingSettings
@@ -31,6 +32,14 @@ DATE_ONLY = (Granularity.DAY, Granularity.MONTH)
 def parse_times(texts: Sequence[str]) -> NDArray[np.datetime64]:
     """ISO dates or timestamps (space or `T` separator) as second-resolution datetimes."""
     return np.array([t.replace(" ", "T") for t in texts], dtype="datetime64[s]")
+
+
+def epoch_seconds(values: Sequence[object]) -> NDArray[np.float64]:
+    """Seconds since 1970 of ISO-8601 values; NaN for nulls and values that do not parse."""
+    texts = [None if v is None else str(v) for v in values]
+    stamps = pd.to_datetime(pd.Series(texts, dtype=object), errors="coerce", format="ISO8601")
+    seconds = stamps.to_numpy("datetime64[s]").astype(np.int64).astype(np.float64)
+    return np.where(stamps.isna().to_numpy(), np.nan, seconds)
 
 
 def temporal_profile(  # noqa: PLR0913 - exact SQL facts, the sample and the reference time

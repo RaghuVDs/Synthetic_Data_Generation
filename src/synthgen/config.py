@@ -90,6 +90,8 @@ class ProfilingSettings(_Group):
     rule_min_share: float = Field(gt=0, le=1)
     max_arithmetic_columns: int = Field(ge=0)
     max_conditional_levels: int = Field(ge=1)
+    max_parent_columns: int = Field(ge=0)
+    parent_sample_rows: int = Field(ge=10)
     card_top_values: int = Field(ge=1)
     mapper_batch_tables: int = Field(ge=1)
     mapper_batch_columns: int = Field(ge=1)

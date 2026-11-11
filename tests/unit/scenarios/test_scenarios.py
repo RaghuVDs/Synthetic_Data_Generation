@@ -136,6 +136,7 @@ def shop_profiles(
             connector,
             provider.table(t),
             provider.relationships(),
+            parents={m.name: m for m in provider.tables()},
             settings=profiling_settings,
             seed=0,
             now=PROFILE_NOW,

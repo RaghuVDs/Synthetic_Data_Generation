@@ -71,6 +71,7 @@ def _profile(path: Path, settings: ProfilingSettings) -> TableProfile:
             connector,
             provider.table("sales"),
             [],
+            parents={},
             settings=settings,
             seed=1,
             now=datetime(2026, 1, 1, tzinfo=UTC),

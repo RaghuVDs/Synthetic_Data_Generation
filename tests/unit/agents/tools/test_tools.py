@@ -31,6 +31,7 @@ def ctx(shop_db: Path, profiling_settings: ProfilingSettings) -> Iterator[ToolCo
             connector,
             provider.table(t),
             provider.relationships(),
+            parents={m.name: m for m in provider.tables()},
             settings=profiling_settings,
             seed=0,
             now=PROFILE_NOW,

@@ -33,7 +33,7 @@ from synthgen.domain.pending import Pending, PendingApproval, PendingClarificati
 from synthgen.domain.report import ValidationReport
 from synthgen.domain.summary import Summary
 from synthgen.engine.writer import MANIFEST_FILE, Manifest, read_manifest, read_table
-from synthgen.profiling.cache import ProfileRequest, profile_version
+from synthgen.profiling.cache import profile_request, profile_version
 from synthgen.profiling.card import LlmSafeProfile, build_card
 from synthgen.profiling.models import TableProfile
 from synthgen.scenarios.templates.loader import BUILT_IN, TemplateLibrary
@@ -158,8 +158,8 @@ class Application:
             cards = []
             for name in tables:
                 meta = src.metadata.table(name)
-                request = ProfileRequest(
-                    source=source, meta=meta, relationships=rels, refresh=refresh, now=self._clock()
+                request = profile_request(
+                    source, src.metadata, name, refresh=refresh, now=self._clock()
                 )
                 version = profile_version(
                     request, src.connector, self._profiles, self._settings.profiling

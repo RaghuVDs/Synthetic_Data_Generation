@@ -1,10 +1,14 @@
-"""Cross-column statistics (SPEC 8.3 F). Only strong pairs are stored, so wide tables stay small."""
+"""Cross-column (SPEC 8.3 F) and cross-table (G) statistics.
+
+Only strong pairs are stored, so wide tables stay small.
+"""
 
 from __future__ import annotations
 
 from enum import StrEnum
 
 from synthgen.domain.base import StrictModel
+from synthgen.profiling.shape_models import CountFits, DistributionFit, Spread
 
 
 class NumericPair(StrictModel):
@@ -115,3 +119,56 @@ class CrossColumnProfile(StrictModel):
     conditionals: list[ConditionalShares]
     rules: list[ColumnRule]
     null_pairs: list[NullPair]
+
+
+class CountSummary(StrictModel):
+    """Children per parent row, parents without children included."""
+
+    minimum: int
+    maximum: int
+    mean: float
+    percentiles: list[tuple[float, float]]
+
+
+class RelationshipShape(StrictModel):
+    """Coverage, children-per-parent fits and key skew of one relationship (exact, via SQL)."""
+
+    child_rows: int
+    """Child rows whose key is not null."""
+    orphan_rate: float
+    parent_coverage: float
+    """Share of parent rows with at least one child."""
+    children: CountSummary
+    count_fits: CountFits | None
+    lognorm: DistributionFit | None
+    """Log-normal fit of the counts of parents that have children."""
+    zipf_exponent: float | None
+    top_share: float
+    """Share of child rows held by the top 1% of parents."""
+    gini: float
+
+
+class TemporalOrder(StrictModel):
+    """Child date against its parent's date: share on or after, and the lag in seconds."""
+
+    parent_column: str
+    child_column: str
+    rows: int
+    after_share: float
+    lag_seconds: Spread
+
+
+class ParentLevel(StrictModel):
+    """Parents in one category and their children."""
+
+    level: str
+    parent_share: float
+    child_share: float
+    mean_children: float
+
+
+class ParentCategory(StrictModel):
+    """Children per parent within each level of a parent's categorical column."""
+
+    parent_column: str
+    levels: list[ParentLevel]

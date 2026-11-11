@@ -47,6 +47,7 @@ def _profile(
         connector,
         provider.table(table),
         provider.relationships(),
+        parents={m.name: m for m in provider.tables()},
         settings=settings,
         seed=1,
         now=PROFILE_NOW,

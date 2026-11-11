@@ -481,7 +481,7 @@ confirmed or corrected it moves to section 3.
     correlations, FDs, a ≤ b, c = a + b, null co-occurrence). Wide tables:
     pairwise statistics limited to `profiling.max_pair_columns` columns chosen
     by role and variance, so 3,000 columns never mean 4.5 million pairs.
-  - [ ] T4.5 Cross-table G: `profiling/relationships.py`. Tests.
+  - [x] T4.5 Cross-table G: `profiling/relationships.py`. Tests.
   - [ ] T4.6 Behaviour H: `profiling/behaviour.py`. Tests.
   - [ ] T4.7 Label-stratified I: `profiling/stratified.py`. Tests.
   - [ ] T4.8 Sensitivity and cache: `profiling/privacy.py` (classes, folding),

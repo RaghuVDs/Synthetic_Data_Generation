@@ -46,6 +46,7 @@ def profile(path: Path, settings: ProfilingSettings) -> tuple[int, int]:
             connector,
             provider.table("wide"),
             [],
+            parents={},
             settings=settings,
             seed=1,
             now=PROFILE_NOW,

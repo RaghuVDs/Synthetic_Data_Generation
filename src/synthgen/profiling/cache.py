@@ -6,7 +6,7 @@ caller asks for a refresh.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Protocol
@@ -15,7 +15,7 @@ from pydantic import BaseModel
 
 from synthgen.config import ProfilingSettings
 from synthgen.domain.metadata import Relationship, TableMeta
-from synthgen.domain.ports import Connector
+from synthgen.domain.ports import Connector, MetadataProvider
 from synthgen.profiling.profiler import profile_table, schema_hash
 
 
@@ -52,8 +52,30 @@ class ProfileRequest:
     source: str
     meta: TableMeta
     relationships: Sequence[Relationship]
+    parents: Mapping[str, TableMeta]
+    """Metadata of every parent table the relationships name."""
     refresh: bool
     now: datetime
+
+
+def profile_request(
+    source: str, metadata: MetadataProvider, table: str, *, refresh: bool, now: datetime
+) -> ProfileRequest:
+    """A request for one table, with every relationship and the metadata of its parents."""
+    relationships = metadata.relationships()
+    parents = {
+        r.parent_table: metadata.table(r.parent_table)
+        for r in relationships
+        if r.child_table == table
+    }
+    return ProfileRequest(
+        source=source,
+        meta=metadata.table(table),
+        relationships=relationships,
+        parents=parents,
+        refresh=refresh,
+        now=now,
+    )
 
 
 def profile_version(
@@ -70,6 +92,7 @@ def profile_version(
         connector,
         request.meta,
         request.relationships,
+        parents=request.parents,
         settings=settings,
         seed=settings.sample_seed,
         now=request.now,

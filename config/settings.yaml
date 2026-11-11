@@ -54,6 +54,8 @@ profiling:
   rule_min_share: 0.999               # share of rows a rule must hold on to be recorded
   max_arithmetic_columns: 30          # numeric columns searched for c = a + b and c = a * b
   max_conditional_levels: 10          # levels kept in conditional distributions
+  max_parent_columns: 5               # parent date and category columns compared per relationship
+  parent_sample_rows: 500             # parent rows sampled to find those columns
   card_top_values: 5
   mapper_batch_tables: 15
   mapper_batch_columns: 250           # columns per semantic-mapper call; wider tables are sliced

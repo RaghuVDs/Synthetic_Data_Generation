@@ -8,7 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -33,7 +33,7 @@ from synthgen.profiling.models import (
     TableProfile,
 )
 from synthgen.profiling.numeric import SqlMoments, numeric_profile
-from synthgen.profiling.relationships import children_per_parent
+from synthgen.profiling.relationships import RelationshipInputs, relationship_profile
 from synthgen.profiling.shape_models import TextFormat
 from synthgen.profiling.temporal import temporal_profile
 from synthgen.profiling.text import text_format, text_shape
@@ -65,13 +65,15 @@ def profile_table(  # noqa: PLR0913 - the full context of one profiling run
     meta: TableMeta,
     relationships: Sequence[Relationship],
     *,
+    parents: Mapping[str, TableMeta],
     settings: ProfilingSettings,
     seed: int,
     now: datetime,
 ) -> TableProfile:
     """Compute groups A to E and children-per-parent shapes for one table.
 
-    `now` is the reference time for future-date rates, injected so profiles are reproducible.
+    `parents` holds the metadata of every parent table the relationships name. `now` is the
+    reference time for future-date rates, injected so profiles are reproducible.
     """
     rows = connector.row_count(meta.name)
     names = [c.name for c in meta.columns]
@@ -108,7 +110,9 @@ def profile_table(  # noqa: PLR0913 - the full context of one profiling run
         columns=columns,
         cross_column=cross_column_profile(sample, columns, _keys(meta, relationships), settings),
         relationships=[
-            children_per_parent(connector, r)
+            relationship_profile(
+                RelationshipInputs(connector, sample, columns, parents, settings, seed), r
+            )
             for r in relationships
             if r.child_table == meta.name and not r.is_self_reference
         ],

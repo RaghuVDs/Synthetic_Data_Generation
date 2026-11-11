@@ -5,7 +5,7 @@ from __future__ import annotations
 from synthgen.agents.nodes.deps import NodeDeps, StateUpdate
 from synthgen.agents.state import JobState
 from synthgen.domain.errors import SynthgenError
-from synthgen.profiling.cache import ProfileRequest, profile_version
+from synthgen.profiling.cache import profile_request, profile_version
 
 
 def run(state: JobState, deps: NodeDeps) -> StateUpdate:
@@ -17,10 +17,10 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
     with deps.open_source(request.source) as source:
         refs = {
             name: profile_version(
-                ProfileRequest(
-                    source=request.source,
-                    meta=source.metadata.table(name),
-                    relationships=source.metadata.relationships(),
+                profile_request(
+                    request.source,
+                    source.metadata,
+                    name,
                     refresh=request.refresh_profiles,
                     now=deps.clock(),
                 ),

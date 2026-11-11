@@ -40,6 +40,7 @@ from synthgen.profiling.rules import (
     null_pairs,
     ordering_rules,
 )
+from synthgen.profiling.temporal import epoch_seconds
 
 NUMERIC = (InferredType.INTEGER, InferredType.FLOAT)
 TEMPORAL = (InferredType.DATE, InferredType.DATETIME)
@@ -102,9 +103,7 @@ def _arrays(sample: pa.Table, columns: Sequence[ColumnProfile]) -> Arrays:
         if column.inferred_type in NUMERIC:
             numeric[column.name] = pd.to_numeric(series, errors="coerce").to_numpy(np.float64)
         if column.inferred_type in TEMPORAL:
-            stamps = pd.to_datetime(series, errors="coerce", format="ISO8601")
-            seconds = stamps.to_numpy("datetime64[s]").astype(np.int64).astype(np.float64)
-            temporal[column.name] = np.where(stamps.isna().to_numpy(), np.nan, seconds)
+            temporal[column.name] = epoch_seconds(series.tolist())
         found, uniques = pd.factorize(series.where(series.isna(), series.astype(str)), sort=True)
         codes[column.name] = found.astype(np.int64)
         labels[column.name] = [str(u) for u in uniques]
