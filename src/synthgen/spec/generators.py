@@ -12,7 +12,8 @@ from pydantic import Field, model_validator
 
 from synthgen.domain.base import StrictModel
 
-Scalar = str | int | float | bool
+Scalar = str | float | bool
+"""A single value. Whole numbers are numbers; the engine casts to each column's type."""
 WEIGHT_TOLERANCE = 1e-6
 WEEKDAYS = 7
 HOURS = 24

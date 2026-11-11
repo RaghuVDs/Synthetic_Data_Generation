@@ -159,9 +159,15 @@ class TwoLists(BaseModel):
     value: list[int] | list[str]
 
 
-def test_strict_schema_rejects_ambiguous_unions() -> None:
+class IntOrFloat(BaseModel):
+    model_config = {"extra": "forbid"}
+    value: int | float
+
+
+@pytest.mark.parametrize("model", [TwoLists, IntOrFloat])
+def test_strict_schema_rejects_ambiguous_unions(model: type[BaseModel]) -> None:
     with pytest.raises(ConfigError, match="cannot be told apart"):
-        strict_schema(TwoLists)
+        strict_schema(model)
 
 
 def test_strict_schema_rejects_models_with_optional_fields() -> None:
