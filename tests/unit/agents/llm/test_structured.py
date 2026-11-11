@@ -154,6 +154,16 @@ class WithDefault(BaseModel):
     value: int = 1
 
 
+class TwoLists(BaseModel):
+    model_config = {"extra": "forbid"}
+    value: list[int] | list[str]
+
+
+def test_strict_schema_rejects_ambiguous_unions() -> None:
+    with pytest.raises(ConfigError, match="cannot be told apart"):
+        strict_schema(TwoLists)
+
+
 def test_strict_schema_rejects_models_with_optional_fields() -> None:
     with pytest.raises(ConfigError):
         strict_schema(WithDefault)

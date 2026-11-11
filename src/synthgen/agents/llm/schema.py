@@ -74,5 +74,18 @@ def _check(node: Json, where: str) -> None:
             raise ConfigError(f"{where}: an object allows extra properties")
         if set(node.get("required", [])) != set(properties):
             raise ConfigError(f"{where}: not every property is required")
+    branches = node.get("anyOf")
+    if isinstance(branches, list):
+        _check_branches(branches, where)
     for value in node.values():
         _check(value, where)
+
+
+def _check_branches(branches: list[Json], where: str) -> None:
+    """Union branches must be told apart by type, or (objects) by a required enum property."""
+    kinds = [str(b["type"]) for b in branches if isinstance(b, dict) and "type" in b]
+    repeated = {k for k in kinds if kinds.count(k) > 1 and k != "object"}
+    if repeated:
+        raise ConfigError(
+            f"{where}: anyOf has several {sorted(repeated)} branches; they cannot be told apart"
+        )

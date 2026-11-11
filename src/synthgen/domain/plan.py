@@ -86,7 +86,7 @@ class Assertion(StrictModel):
     column: str
     metric: AssertionMetric
     operator: AssertionOperator
-    value: float | str | bool | list[float] | list[str]
+    value: float | str | bool | list[float | str]
     window_hours: float | None = Field(gt=0)
 
 
