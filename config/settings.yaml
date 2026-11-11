@@ -56,6 +56,9 @@ profiling:
   max_conditional_levels: 10          # levels kept in conditional distributions
   max_parent_columns: 5               # parent date and category columns compared per relationship
   parent_sample_rows: 500             # parent rows sampled to find those columns
+  behaviour_entities: 2000            # entities whose full histories feed behaviour statistics (H)
+  behaviour_key_batch: 500            # entity keys per SQL query
+  max_state_columns: 3                # categorical columns given a state-transition matrix
   card_top_values: 5
   mapper_batch_tables: 15
   mapper_batch_columns: 250           # columns per semantic-mapper call; wider tables are sliced

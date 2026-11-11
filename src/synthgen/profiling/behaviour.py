@@ -1,6 +1,7 @@
-"""Behaviour per entity over time (SPEC 8.3 H): velocity, inter-arrival and bursts.
+"""Behaviour per entity over time (SPEC 8.3 H): velocity, gaps, bursts, lifetimes, states.
 
-Pure functions over sampled arrays. M2/M3 compute these on demand for the planner's tools.
+Pure functions over event arrays. Entities are integer codes; times are epoch seconds. Most
+functions expect events sorted by entity, then time (see `sort_events`).
 """
 
 from __future__ import annotations
@@ -8,24 +9,14 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 
-from synthgen.domain.base import StrictModel
+from synthgen.profiling.relation_models import BehaviourStats, TransitionMatrix
 from synthgen.profiling.shape_models import Spread
 
 SECONDS_PER_HOUR = 3_600
+SECONDS_PER_DAY = 86_400
+MIN_AUTOCORRELATION_PAIRS = 3
 BURST_WINDOWS_HOURS = (1, 24)
 PERCENTILES = (50.0, 90.0, 99.0)
-
-
-class BehaviourStats(StrictModel):
-    """How entities act over time."""
-
-    entities: int
-    events: int
-    events_per_entity: Spread
-    inter_arrival_hours: Spread | None
-    burst_1h: Spread
-    burst_24h: Spread
-    value_to_entity_median: Spread | None
 
 
 def spread(values: NDArray[np.float64]) -> Spread:
@@ -76,11 +67,72 @@ def _bursts(entity: NDArray[np.int64], time: NDArray[np.int64], window: int) -> 
 def _relative_to_median(
     values: NDArray[np.float64], starts: NDArray[np.int64], counts: NDArray[np.int64]
 ) -> NDArray[np.float64]:
-    """Each value divided by its entity's median (entities with a zero median are skipped)."""
+    """Each value divided by its entity's median; missing values and zero medians are skipped."""
     ratios = []
     for start, count in zip(starts.tolist(), counts.tolist(), strict=True):
         own = values[start : start + count]
-        median = float(np.median(own))
+        own = own[~np.isnan(own)]
+        median = float(np.median(own)) if own.size else 0.0
         if median:
             ratios.append(own / median)
     return np.concatenate(ratios) if ratios else np.zeros(0)
+
+
+def sort_events(entities: NDArray[np.int64], seconds: NDArray[np.int64]) -> NDArray[np.int64]:
+    """Order that sorts events by entity, then time."""
+    return np.lexsort((seconds, entities))
+
+
+def per_period(entity: NDArray[np.int64], time: NDArray[np.int64], period: int) -> Spread:
+    """Events per entity within each period (day or week) in which the entity was active."""
+    if entity.size == 0:
+        return spread(np.zeros(0))
+    _, counts = np.unique(np.stack([entity, time // period]), axis=1, return_counts=True)
+    return spread(counts.astype(np.float64))
+
+
+def lifetimes_days(entity: NDArray[np.int64], time: NDArray[np.int64]) -> Spread:
+    """Days from each entity's first to its last event."""
+    if entity.size == 0:
+        return spread(np.zeros(0))
+    _, inverse = np.unique(entity, return_inverse=True)
+    first = np.full(int(np.max(inverse)) + 1, np.iinfo(np.int64).max)
+    last = np.full(first.size, np.iinfo(np.int64).min)
+    np.minimum.at(first, inverse, time)
+    np.maximum.at(last, inverse, time)
+    return spread((last - first).astype(np.float64) / SECONDS_PER_DAY)
+
+
+def lag1_autocorrelation(entity: NDArray[np.int64], values: NDArray[np.float64]) -> float | None:
+    """Correlation of consecutive present values of one entity; None when it is undefined."""
+    same = (entity[1:] == entity[:-1]) & ~np.isnan(values[1:]) & ~np.isnan(values[:-1])
+    x, y = values[:-1][same], values[1:][same]
+    if x.size < MIN_AUTOCORRELATION_PAIRS or not np.std(x) or not np.std(y):
+        return None
+    return float(np.corrcoef(x, y)[0, 1])
+
+
+def distinct_per_entity(entity: NDArray[np.int64], other: NDArray[np.int64]) -> Spread:
+    """How many distinct values of another key each entity has (nulls, coded -1, excluded)."""
+    keep = other >= 0
+    if not keep.any():
+        return spread(np.zeros(0))
+    pairs = np.unique(np.stack([entity[keep], other[keep]]), axis=1)
+    _, counts = np.unique(pairs[0], return_counts=True)
+    return spread(counts.astype(np.float64))
+
+
+def transitions(
+    column: str, entity: NDArray[np.int64], codes: NDArray[np.int64], states: list[str]
+) -> TransitionMatrix:
+    """Row-normalised counts of state changes between consecutive events of an entity."""
+    same = (entity[1:] == entity[:-1]) & (codes[1:] >= 0) & (codes[:-1] >= 0)
+    counts = np.zeros((len(states), len(states)))
+    np.add.at(counts, (codes[:-1][same], codes[1:][same]), 1.0)
+    totals = counts.sum(axis=1, keepdims=True)
+    probabilities = np.divide(counts, totals, out=np.zeros_like(counts), where=totals > 0)
+    return TransitionMatrix(
+        column=column,
+        states=states,
+        probabilities=[[float(p) for p in row] for row in probabilities],
+    )

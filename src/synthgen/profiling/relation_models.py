@@ -1,4 +1,4 @@
-"""Cross-column (SPEC 8.3 F) and cross-table (G) statistics.
+"""Cross-column (SPEC 8.3 F), cross-table (G) and behaviour (H) statistics.
 
 Only strong pairs are stored, so wide tables stay small.
 """
@@ -172,3 +172,52 @@ class ParentCategory(StrictModel):
 
     parent_column: str
     levels: list[ParentLevel]
+
+
+class BehaviourStats(StrictModel):
+    """How entities act over time."""
+
+    entities: int
+    events: int
+    events_per_entity: Spread
+    inter_arrival_hours: Spread | None
+    burst_1h: Spread
+    burst_24h: Spread
+    value_to_entity_median: Spread | None
+
+
+class TransitionMatrix(StrictModel):
+    """Probability of each next state given the current one, within each entity's history."""
+
+    column: str
+    states: list[str]
+    probabilities: list[list[float]]
+
+
+class Counterparties(StrictModel):
+    """Distinct values of another key per entity, such as merchants per account."""
+
+    column: str
+    per_entity: Spread
+
+
+class BehaviourProfile(StrictModel):
+    """Behaviour of one entity key over the table's main timestamp (SPEC 8.3 H).
+
+    Computed on the full histories of a seeded sample of entities, so gaps are not stretched
+    by row sampling.
+    """
+
+    entity_column: str
+    time_column: str
+    measure_column: str | None
+    stats: BehaviourStats
+    per_active_day: Spread
+    per_active_week: Spread
+    inter_arrival_fits: list[DistributionFit]
+    """Exponential, gamma and log-normal fits of the gaps in hours, best first."""
+    gap_autocorrelation: float | None
+    value_autocorrelation: float | None
+    lifetime_days: Spread
+    counterparties: list[Counterparties]
+    transitions: list[TransitionMatrix]

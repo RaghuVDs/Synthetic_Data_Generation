@@ -21,6 +21,7 @@ from synthgen.domain.metadata import ColumnMeta, Relationship, Sensitivity, Tabl
 from synthgen.domain.ports import Connector
 from synthgen.domain.query import AggExpr, AggFunc
 from synthgen.profiling.batching import batched_aggregate, batched_sample, sample_rows
+from synthgen.profiling.behaviour_profile import EventSource, behaviour_profiles
 from synthgen.profiling.categorical import categorical_profile, sample_counts
 from synthgen.profiling.cross_column import cross_column_profile
 from synthgen.profiling.inference import Value, infer_type, semantic_type, sensitivity_for
@@ -116,6 +117,9 @@ def profile_table(  # noqa: PLR0913 - the full context of one profiling run
             for r in relationships
             if r.child_table == meta.name and not r.is_self_reference
         ],
+        behaviour=behaviour_profiles(
+            EventSource(connector, meta.name, settings, seed), columns, relationships
+        ),
     )
 
 

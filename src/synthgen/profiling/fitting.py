@@ -98,15 +98,19 @@ def _numerical(x: FloatArray) -> list[tuple[str, Frozen, tuple[float, ...]]]:
     return found
 
 
-def fit_distributions(x: FloatArray, *, full: bool) -> list[DistributionFit]:
+def fit_distributions(
+    x: FloatArray, *, full: bool, families: frozenset[str] | None = None
+) -> list[DistributionFit]:
     """Candidates ranked by AIC, each with a KS test. Fewer than ten distinct values: none.
 
     Without `full` only closed-form candidates are fitted and only the best one is KS-tested
-    and returned, which keeps wide tables fast.
+    and returned, which keeps wide tables fast. `families` limits the candidates by name.
     """
     if np.unique(x).size < MIN_DISTINCT_TO_FIT:
         return []
     candidates = _closed_form(x) + (_numerical(x) if full else [])
+    if families is not None:
+        candidates = [c for c in candidates if c[0] in families]
     scored = [
         (aic, name, dist, params)
         for name, dist, params in candidates
