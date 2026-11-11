@@ -21,6 +21,8 @@ llm:
 
 profiling:
   sample_size: 200000
+  max_sample_cells: 20000000          # sample rows shrink so rows x columns stays under this
+  max_select_columns: 1000            # result columns per SQL query (SQLite caps at 2,000)
   sample_seed: 0                      # profiles do not depend on the generation seed
   cache_max_age_days: 7
   histogram_bins: 50

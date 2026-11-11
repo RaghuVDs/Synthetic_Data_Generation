@@ -57,6 +57,8 @@ class ProfilingSettings(_Group):
     """Sample sizes and statistic resolutions for the profiler (SPEC 8.2, 8.3)."""
 
     sample_size: int = Field(ge=1)
+    max_sample_cells: int = Field(ge=1)
+    max_select_columns: int = Field(ge=1, le=2000)
     sample_seed: int = Field(ge=0)
     cache_max_age_days: int = Field(ge=0)
     histogram_bins: int = Field(ge=1)

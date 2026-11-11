@@ -433,7 +433,7 @@ confirmed or corrected it moves to section 3.
     exceeds the active driver's column limit. Tests:
     `tests/unit/connectors/test_wide.py` (3,000 columns, skipped without the
     wide build; stdlib limit error).
-  - [ ] T3.12 Wide-table profiling: aggregates and samples in column batches
+  - [x] T3.12 Wide-table profiling: aggregates and samples in column batches
     (`profiling.max_select_columns`). Tests: 1,500 columns on stdlib SQLite,
     3,000 columns on the wide build.
   - [ ] T3.13 Wide-table prompts: mapper batches columns within a table

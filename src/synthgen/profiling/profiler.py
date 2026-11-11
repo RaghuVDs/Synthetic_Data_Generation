@@ -19,6 +19,7 @@ from synthgen.config import ProfilingSettings
 from synthgen.domain.metadata import ColumnMeta, Relationship, Sensitivity, TableMeta
 from synthgen.domain.ports import Connector
 from synthgen.domain.query import AggExpr, AggFunc
+from synthgen.profiling.batching import batched_aggregate, batched_sample, sample_rows
 from synthgen.profiling.categorical import categorical_profile, sample_counts, text_shape
 from synthgen.profiling.inference import Value, infer_type, semantic_type, sensitivity_for
 from synthgen.profiling.models import (
@@ -65,8 +66,17 @@ def profile_table(  # noqa: PLR0913 - the full context of one profiling run
 ) -> TableProfile:
     """Compute groups A to E (core) and children-per-parent shapes for one table."""
     rows = connector.row_count(meta.name)
-    sample = connector.sample(meta.name, [c.name for c in meta.columns], settings.sample_size, seed)
-    facts = _facts(connector, meta, sample)
+    names = [c.name for c in meta.columns]
+    batch = settings.max_select_columns
+    sample = batched_sample(
+        connector,
+        meta.name,
+        names,
+        rows=sample_rows(len(names), settings),
+        seed=seed,
+        batch=batch,
+    )
+    facts = _facts(connector, meta, sample, batch)
     columns = [_column(connector, meta.name, f, rows, settings) for f in facts]
     return TableProfile(
         source=source,
@@ -92,8 +102,10 @@ def profile_table(  # noqa: PLR0913 - the full context of one profiling run
     )
 
 
-def _facts(connector: Connector, meta: TableMeta, sample: pa.Table) -> list[ColumnFacts]:
-    """Sample values and inferred types, then one SQL pass for every column's aggregates."""
+def _facts(
+    connector: Connector, meta: TableMeta, sample: pa.Table, batch: int
+) -> list[ColumnFacts]:
+    """Sample values and inferred types, then batched SQL passes for every column's aggregates."""
     values = {
         c.name: [v for v in sample.column(c.name).to_pylist() if v is not None]
         for c in meta.columns
@@ -105,7 +117,7 @@ def _facts(connector: Connector, meta: TableMeta, sample: pa.Table) -> list[Colu
         if types[col.name] in NUMERIC:
             funcs += [AggFunc.SUM, AggFunc.SUM_SQ]
         exprs += [AggExpr(func=f, column=col.name, alias=f"c{i}_{f}") for f in funcs]
-    [row] = connector.aggregate(meta.name, exprs)
+    row = batched_aggregate(connector, meta.name, exprs, batch)
     return [
         ColumnFacts(
             meta=col,
