@@ -126,7 +126,7 @@ def _column(
         nullable=meta.nullable,
         null_rate=0.0 if meta.primary_key or is_label else column.null_rate.value,
         primary_key=meta.primary_key,
-        unique=column.is_unique.value and not meta.primary_key,
+        unique=meta.unique and not meta.primary_key,
         sensitive=sensitive,
         generator=_generator(meta, column, key, is_label=is_label),
     )
@@ -150,6 +150,8 @@ def _generator(  # noqa: PLR0911 - one branch per kind of column
         return ConstantGen(type="constant", value=column.top_value.value)
     if column.sensitivity is Sensitivity.SENSITIVE or column.inferred_type is InferredType.EMPTY:
         return _pattern(column)
+    if meta.unique and column.inferred_type is InferredType.TEXT:
+        return _pattern(column)  # observed values cannot stay unique once more rows are asked for
     if column.numeric is not None:
         decimals = (
             0

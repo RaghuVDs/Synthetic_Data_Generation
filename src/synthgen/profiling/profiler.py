@@ -51,7 +51,7 @@ class ColumnFacts:
 
 def schema_hash(meta: TableMeta) -> str:
     """Hash of column names and declared types; a change invalidates cached profiles."""
-    shape = [(c.name, c.declared_type, c.nullable, c.primary_key) for c in meta.columns]
+    shape = [(c.name, c.declared_type, c.nullable, c.primary_key, c.unique) for c in meta.columns]
     return hashlib.sha256(json.dumps([meta.name, shape]).encode()).hexdigest()[:16]
 
 

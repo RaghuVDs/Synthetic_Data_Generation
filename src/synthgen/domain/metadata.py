@@ -31,6 +31,7 @@ class ColumnMeta(StrictModel):
     declared_type: str
     nullable: bool
     primary_key: bool
+    unique: bool = False
     description: str = ""
     sensitivity: Sensitivity | None = None
 

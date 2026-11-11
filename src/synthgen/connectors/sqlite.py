@@ -129,16 +129,29 @@ class SqliteConnector:
         if table not in self._columns:
             self._check_table(table)
             rows = self._query(f"PRAGMA table_info({quote(table)})")
+            unique = self._unique_columns(table)
             self._columns[table] = [
                 ColumnInfo(
                     name=str(name),
                     declared_type=str(declared).upper(),
                     nullable=not notnull and not pk,
                     primary_key_position=int(pk),
+                    unique=str(name) in unique,
                 )
                 for _, name, declared, notnull, _default, pk in rows
             ]
         return self._columns[table]
+
+    def _unique_columns(self, table: str) -> set[str]:
+        """Columns with a single-column UNIQUE constraint or unique index."""
+        found: set[str] = set()
+        for _, index, is_unique, *_ in self._query(f"PRAGMA index_list({quote(table)})"):
+            if not is_unique:
+                continue
+            columns = self._query(f"PRAGMA index_info({quote(str(index))})")
+            if len(columns) == 1:
+                found.add(str(columns[0][2]))
+        return found
 
     def foreign_keys(self, table: str) -> list[ForeignKeyInfo]:
         """Foreign keys the database declares on a table; composite keys are rejected."""

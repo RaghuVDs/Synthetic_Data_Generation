@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -206,3 +208,42 @@ def test_baseline_defects_are_attributed_to_baseline(
     assert errors
     assert {e.origin for e in errors} == {"baseline"}
     assert any("not earlier" in e.message or "not generated earlier" in e.message for e in errors)
+
+
+def test_declared_unique_text_uses_masks_and_observed_uniqueness_is_ignored(
+    tmp_path: Path, profiling_settings: ProfilingSettings, generation_settings: GenerationSettings
+) -> None:
+    path = tmp_path / "names.db"
+    with closing(sqlite3.connect(path)) as conn:
+        conn.execute(
+            "CREATE TABLE shops (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, city TEXT)"
+        )
+        conn.executemany(
+            "INSERT INTO shops VALUES (?, ?, ?)",
+            [(i, f"Shop {i}", f"City {i}") for i in range(1, 21)],
+        )
+        conn.commit()
+    with closing(SqliteConnector(path)) as connector:
+        provider = YamlMetadataProvider(SourceDoc(source="names"), connector)
+        profile = profile_table(
+            "names", connector, provider.table("shops"), [], settings=profiling_settings, seed=1
+        )
+        table_set = build_table_set(["shops"], ["shops"], [])
+        spec = compile_baseline(
+            BaselineInputs(
+                table_set=table_set,
+                tables={"shops": provider.table("shops")},
+                profiles={"shops": profile},
+                profile_versions={"shops": "v"},
+                semantic_map=None,
+                row_targets={"shops": 500},
+                seed=1,
+            ),
+            generation_settings,
+        )
+    name = spec.tables[0].column("name")
+    city = spec.tables[0].column("city")
+    assert name is not None and name.unique
+    assert name.generator.type == "pattern"
+    assert city is not None and not city.unique  # distinct in the sample, but not declared unique
+    assert city.generator.type == "categorical"

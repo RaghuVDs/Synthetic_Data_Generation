@@ -21,7 +21,7 @@ def db_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
     conn = sqlite3.connect(path)
     conn.executescript(
         """
-        CREATE TABLE parents (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
+        CREATE TABLE parents (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE);
         CREATE TABLE items (
             id INTEGER PRIMARY KEY,
             parent_id INTEGER NOT NULL REFERENCES parents(id),
@@ -83,6 +83,13 @@ def test_tables_and_columns(connector: SqliteConnector) -> None:
     assert columns["amount"].nullable
     assert columns["amount"].declared_type == "REAL"
     assert columns["mixed"].declared_type == ""
+
+
+def test_declared_unique_columns(connector: SqliteConnector) -> None:
+    parents = {c.name: c for c in connector.get_columns("parents")}
+    assert parents["name"].unique
+    assert not parents["id"].unique
+    assert not any(c.unique for c in connector.get_columns("items"))
 
 
 def test_foreign_keys_resolve_implicit_target(connector: SqliteConnector) -> None:

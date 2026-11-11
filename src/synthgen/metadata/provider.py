@@ -107,6 +107,7 @@ def _merge_tables(doc: SourceDoc, connector: Connector) -> dict[str, TableMeta]:
                 declared_type=info.declared_type,
                 nullable=info.nullable,
                 primary_key=info.primary_key_position > 0,
+                unique=info.unique,
                 description=table_doc.columns.get(info.name, ColumnDoc()).description,
                 sensitivity=table_doc.columns.get(info.name, ColumnDoc()).sensitivity,
             )

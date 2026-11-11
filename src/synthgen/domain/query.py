@@ -21,6 +21,8 @@ class ColumnInfo(StrictModel):
     nullable: bool
     primary_key_position: int = Field(ge=0)
     """1-based position in the primary key, 0 when not part of it."""
+    unique: bool = False
+    """Declared unique on its own (UNIQUE constraint or unique index)."""
 
 
 class ForeignKeyInfo(StrictModel):
