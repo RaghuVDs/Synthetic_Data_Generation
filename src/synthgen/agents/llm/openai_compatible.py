@@ -50,9 +50,14 @@ class OpenAiCompatibleClient:
     def complete(
         self, messages: list[Message], schema: type[BaseModel], temperature: float
     ) -> Reply:
-        """Strict JSON-schema output, or JSON mode with the schema in the prompt."""
+        """JSON output in the configured mode (SPEC 4.2).
+
+        `json_schema` is enforced by the provider; `json_object` and `prompt` write the schema
+        into the conversation, `json_object` also asking the server for valid JSON.
+        """
         body = self._body(messages, temperature)
-        if self._settings.strict_output:
+        mode = self._settings.output_mode
+        if mode == "json_schema":
             body["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
@@ -66,7 +71,8 @@ class OpenAiCompatibleClient:
                 role="system", content=JSON_MODE_INSTRUCTION + json.dumps(strict_schema(schema))
             )
             body["messages"] = [_wire(m) for m in [*messages, hint]]
-            body["response_format"] = {"type": "json_object"}
+            if mode == "json_object":
+                body["response_format"] = {"type": "json_object"}
         data, latency = self._post(body)
         message = _first_message(data)
         return Reply(
@@ -119,6 +125,8 @@ class OpenAiCompatibleClient:
         }
         if self._settings.reasoning_effort is not None:
             body["reasoning_effort"] = self._settings.reasoning_effort
+        if self._settings.max_tokens is not None:
+            body["max_tokens"] = self._settings.max_tokens
         return body
 
     def _post(self, body: Json) -> tuple[Json, int]:

@@ -222,3 +222,12 @@ def test_union_errors_are_collapsed() -> None:
     bad = {"table": "t", "column": "c", "metric": "value", "operator": "in", "value": {"x": 1}}
     _, errors = parse(json.dumps(bad | {"window_hours": None}), Assertion)
     assert errors == ["value: matches none of the allowed types"]
+
+
+def test_json_inside_fences_or_prose_is_accepted() -> None:
+    fenced = "Here you go:\n```json\n" + GOOD + "\n```"
+    prose = "Sure. " + GOOD + " Hope this helps."
+    assert parse(fenced, Summary)[0] == Summary(text="fine", caveats=[])
+    assert parse(prose, Summary)[0] == Summary(text="fine", caveats=[])
+    value, errors = parse("no json here", Summary)
+    assert value is None and errors

@@ -71,12 +71,23 @@ def test_strict_request_and_reply() -> None:
     assert fmt["json_schema"]["schema"]["additionalProperties"] is False
 
 
-def test_json_mode_puts_schema_in_prompt() -> None:
+def test_json_object_mode_puts_schema_in_prompt() -> None:
     seen: list[httpx.Request] = []
     handler = recording([httpx.Response(200, json=OK_BODY)], seen)
-    client(handler, [], SYNTHGEN_LLM__STRICT_OUTPUT="false").complete(MESSAGES, Summary, 0.0)
+    client(handler, [], SYNTHGEN_LLM__OUTPUT_MODE="json_object").complete(MESSAGES, Summary, 0.0)
     sent = body(seen[0])
     assert sent["response_format"] == {"type": "json_object"}
+    assert "JSON schema" in sent["messages"][-1]["content"]
+
+
+def test_prompt_mode_sends_no_response_format_and_honours_max_tokens() -> None:
+    seen: list[httpx.Request] = []
+    handler = recording([httpx.Response(200, json=OK_BODY)], seen)
+    llm = client(handler, [], SYNTHGEN_LLM__OUTPUT_MODE="prompt", SYNTHGEN_LLM__MAX_TOKENS="4096")
+    llm.complete(MESSAGES, Summary, 0.0)
+    sent = body(seen[0])
+    assert "response_format" not in sent
+    assert sent["max_tokens"] == 4096
     assert "JSON schema" in sent["messages"][-1]["content"]
 
 

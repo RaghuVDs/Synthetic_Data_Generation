@@ -58,10 +58,32 @@ UNION_BRANCH = re.compile(r"^(float|int|str|bool|list\[.*\]|dict\[.*\]|[A-Z]\w*)
 """A location part that names one branch of a union type, e.g. `float` or `list[str]`."""
 
 
+FENCE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
+
+
+def extract_json(text: str) -> str:
+    """The JSON object inside a reply: a fenced code block, or the outermost braces."""
+    fenced = FENCE.search(text)
+    if fenced:
+        return fenced.group(1).strip()
+    start, end = text.find("{"), text.rfind("}")
+    return text[start : end + 1] if 0 <= start < end else text
+
+
 def parse(text: str, schema: type[ModelT]) -> tuple[ModelT | None, list[str]]:
-    """Gate 2: the parsed model, or the reasons it does not parse (one line per field)."""
+    """Gate 2: the parsed model, or the reasons it does not parse (one line per field).
+
+    Models without enforced JSON output often wrap the object in a code fence or a sentence;
+    the object inside is tried before giving up.
+    """
     try:
         return schema.model_validate_json(text), []
+    except ValidationError as exc:
+        candidate = extract_json(text)
+        if candidate == text:
+            return None, _readable(exc)
+    try:
+        return schema.model_validate_json(candidate), []
     except ValidationError as exc:
         return None, _readable(exc)
 

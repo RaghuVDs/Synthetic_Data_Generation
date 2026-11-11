@@ -440,7 +440,7 @@ confirmed or corrected it moves to section 3.
     (`profiling.mapper_batch_columns`); planner, overlay writer and repair
     analyst receive role-bearing and lever columns only once a table exceeds
     `profiling.card_max_columns`. Tests with a 3,000-column card.
-  - [ ] T3.14 Llama-compatible output: `llm.output_mode` (strict
+  - [x] T3.14 Llama-compatible output: `llm.output_mode` (strict
     `json_schema`, `json_object`, or prompt-only JSON) and a documented
     no-tools mode (`planner_tool_calls = 0`). Tests on the mocked transport.
 - **Acceptance:** with `LLM_API_KEY` set, a real request on `finance` and one on
