@@ -25,6 +25,8 @@ def _lever_problem(
 ) -> str | None:
     if lever.table not in columns or lever.column not in columns[lever.table]:
         return f"{lever.table}.{lever.column} does not exist"
+    if roles.get((lever.table, lever.column)) is ColumnRole.LABEL:
+        return None  # the overlay writes label values directly
     rule = RULES[lever.primitive]
     if rule.construct not in available_constructs():
         return _unavailable(lever.primitive)
@@ -42,7 +44,12 @@ def _scenario(
     reasons: list[str] = []
     for lever in scenario.levers:
         problem = _lever_problem(lever, roles, columns)
-        label = f"{lever.primitive} on {lever.table}.{lever.column}"
+        is_label = roles.get((lever.table, lever.column)) is ColumnRole.LABEL
+        label = (
+            f"label {lever.table}.{lever.column} set by the overlay"
+            if is_label
+            else f"{lever.primitive} on {lever.table}.{lever.column}"
+        )
         (not_covered if problem else covered).append(label)
         if problem:
             reasons.append(problem)

@@ -93,6 +93,10 @@ def test_feasibility_statuses() -> None:
                 scenario("burst", [("orders", "placed", "sequence")]),
                 scenario("ghost", [("orders", "nope", "value_shift")]),
                 scenario("wrong_role", [("orders", "amount", "timing_shift")]),
+                scenario(
+                    "labelled",
+                    [("orders", "amount", "value_shift"), ("orders", "paid", "value_shift")],
+                ),
             ],
             "assumptions": [],
         }
@@ -109,6 +113,12 @@ def test_feasibility_statuses() -> None:
     assert burst.alternative == "use timing_shift instead of sequence"
     assert results["ghost"].reason == "orders.nope does not exist"
     assert "does not apply" in (results["wrong_role"].reason or "")
+    labelled = results["labelled"]
+    assert labelled.status is FeasibilityStatus.EXPRESSIBLE
+    assert labelled.covered == [
+        "value_shift on orders.amount",
+        "label orders.paid set by the overlay",
+    ]
 
 
 @pytest.fixture(scope="module")

@@ -190,13 +190,14 @@ def test_summary_numbers_only_through_placeholders() -> None:
     ]
 
 
-def test_plan_must_not_plan_typical_data_or_set_labels() -> None:
-    labelled = plan(
-        levers=[{"table": "orders", "column": "flag", "primitive": "value_shift", "change": "x"}]
-    )
-    assert check_plan(labelled, COLUMNS, frozenset(), {("orders", "flag")}) == [
-        "s: orders.flag is a label; change the data columns that make the label true"
+def test_plan_must_not_plan_typical_data_or_only_set_labels() -> None:
+    flag = {"table": "orders", "column": "flag", "primitive": "value_shift", "change": "x"}
+    amount = {"table": "orders", "column": "amount", "primitive": "value_shift", "change": "x"}
+    labels = {("orders", "flag")}
+    assert check_plan(plan(levers=[flag]), COLUMNS, frozenset(), labels) == [
+        "s: only label columns change; change the data columns that make the label true"
     ]
+    assert check_plan(plan(levers=[amount, flag]), COLUMNS, frozenset(), labels) == []
     assert check_plan(plan(category="typical"), COLUMNS, frozenset(), set()) == [
         "s: typical data is the remainder after all shares; do not plan it"
     ]

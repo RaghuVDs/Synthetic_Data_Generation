@@ -70,7 +70,7 @@ def check_semantic_map(semantic: SemanticMap, columns: Columns) -> list[str]:
 def check_plan(
     plan: ScenarioPlan, columns: Columns, template_ids: Set[str], labels: Set[tuple[str, str]]
 ) -> list[str]:
-    """Real tables and columns; no typical scenarios; levers change data, never label columns."""
+    """Real tables and columns; no typical scenarios; every scenario changes some data column."""
     problems: list[str] = []
     if not plan.scenarios:
         problems.append("the plan has no scenarios")
@@ -79,11 +79,8 @@ def check_plan(
             problems.append(
                 f"{s.name}: typical data is the remainder after all shares; do not plan it"
             )
-        problems += [
-            f"{s.name}: {lv.table}.{lv.column} is a label; {LABELS_FOLLOW_DATA}"
-            for lv in s.levers
-            if (lv.table, lv.column) in labels
-        ]
+        if s.levers and all((lv.table, lv.column) in labels for lv in s.levers):
+            problems.append(f"{s.name}: only label columns change; {LABELS_FOLLOW_DATA}")
         problems += [f"{s.name}: {p}" for t in s.tables if (p := _missing(columns, t, None))]
         problems += [
             f"{s.name}: {p}" for lv in s.levers if (p := _missing(columns, lv.table, lv.column))
