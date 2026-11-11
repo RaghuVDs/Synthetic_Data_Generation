@@ -53,12 +53,15 @@ class Primitive(StrEnum):
 
 
 class AssertionMetric(StrEnum):
-    """What a signature assertion measures: the row value, or an aggregate per entity."""
+    """What a signature assertion measures: a row value, or an aggregate per entity."""
 
     VALUE = "value"
+    HOUR_OF_DAY = "hour_of_day"
     COUNT = "count"
     SUM = "sum"
     MEAN = "mean"
+    MIN = "min"
+    MAX = "max"
     DISTINCT_COUNT = "distinct_count"
     INTER_ARRIVAL_HOURS = "inter_arrival_hours"
 
@@ -83,7 +86,7 @@ class Assertion(StrictModel):
     column: str
     metric: AssertionMetric
     operator: AssertionOperator
-    value: float | str | bool | list[str]
+    value: float | str | bool | list[float] | list[str]
     window_hours: float | None = Field(gt=0)
 
 

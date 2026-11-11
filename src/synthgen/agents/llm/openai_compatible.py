@@ -24,6 +24,7 @@ from synthgen.domain.errors import ConfigError, LlmError
 
 logger = logging.getLogger(__name__)
 Json = dict[str, Any]  # Any: a decoded JSON object from the provider
+SCHEMA_REJECTED = "json_validate_failed"
 JSON_MODE_INSTRUCTION = "Reply with one JSON object that matches this JSON schema:\n"
 
 
@@ -111,11 +112,14 @@ class OpenAiCompatibleClient:
         )
 
     def _body(self, messages: list[Message], temperature: float) -> Json:
-        return {
+        body: Json = {
             "model": self._settings.model,
             "messages": [_wire(m) for m in messages],
             "temperature": temperature,
         }
+        if self._settings.reasoning_effort is not None:
+            body["reasoning_effort"] = self._settings.reasoning_effort
+        return body
 
     def _post(self, body: Json) -> tuple[Json, int]:
         """POST with retries; returns the decoded body and latency of the successful attempt."""
@@ -134,8 +138,16 @@ class OpenAiCompatibleClient:
             except httpx.TransportError as exc:
                 failure, retry_after = f"transport error: {type(exc).__name__}", None
             else:
+                latency = round((time.monotonic() - started) * 1000)
                 if response.status_code == httpx.codes.OK:
-                    return response.json(), round((time.monotonic() - started) * 1000)
+                    return response.json(), latency
+                rejected = _failed_generation(response)
+                if rejected is not None:
+                    logger.warning("provider rejected the output against the schema; re-prompting")
+                    return {
+                        "model": self._settings.model,
+                        "choices": [{"message": {"content": rejected}}],
+                    }, latency
                 if response.status_code not in RETRY_STATUSES:
                     raise LlmError(
                         f"LLM request rejected ({response.status_code}): {response.text[:500]}"
@@ -168,6 +180,24 @@ def _wire(message: Message) -> Json:
     if message.name is not None:
         out["name"] = message.name
     return out
+
+
+def _failed_generation(response: httpx.Response) -> str | None:
+    """The model's output when the provider's schema gate rejected it, else None.
+
+    Groq validates strict output after generation and answers 400 `json_validate_failed`; the
+    rejected text goes back through the parsing gate so the model is re-prompted with the errors.
+    """
+    if response.status_code != httpx.codes.BAD_REQUEST:
+        return None
+    try:
+        error = response.json().get("error") or {}
+    except ValueError:
+        return None
+    generated = error.get("failed_generation")
+    if error.get("code") == SCHEMA_REJECTED and isinstance(generated, str):
+        return generated
+    return None
 
 
 def _first_message(data: Json) -> Json:

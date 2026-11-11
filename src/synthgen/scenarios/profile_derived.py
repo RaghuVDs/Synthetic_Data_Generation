@@ -107,3 +107,14 @@ def _candidate(
         column=column,
         description=description,
     )
+
+
+def candidates_text(candidates: list[Candidate]) -> str:
+    """One compact line per candidate for prompts."""
+    return (
+        "\n".join(
+            f"- {c.name} | {c.category} | {c.primitive} on {c.table}.{c.column}: {c.description}"
+            for c in candidates
+        )
+        or "none"
+    )

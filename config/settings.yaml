@@ -16,6 +16,7 @@ llm:
   backoff_max_seconds: 30.0
   backoff_jitter: 0.5                 # share of each backoff drawn at random
   strict_output: true                 # provider-enforced JSON schema; false = JSON mode + parsing
+  reasoning_effort: null              # low | medium | high for reasoning models; null = provider default
   requests_per_minute: 30             # client-side rate limiter
 
 profiling:

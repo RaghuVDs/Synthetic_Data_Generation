@@ -178,3 +178,27 @@ def test_malformed_reply_is_an_llm_error() -> None:
         client(recording([httpx.Response(200, json={"choices": []})], []), []).complete(
             MESSAGES, Summary, 0.0
         )
+
+
+def test_schema_rejection_returns_the_failed_generation() -> None:
+    rejected = httpx.Response(
+        400,
+        json={
+            "error": {
+                "message": "Generated JSON does not match the expected schema.",
+                "type": "invalid_request_error",
+                "code": "json_validate_failed",
+                "failed_generation": '{"text": 5}',
+            }
+        },
+    )
+    seen: list[httpx.Request] = []
+    reply = client(recording([rejected], seen), []).complete(MESSAGES, Summary, 0.0)
+    assert reply.text == '{"text": 5}'
+    assert len(seen) == 1
+
+
+def test_other_bad_requests_stay_errors() -> None:
+    other = httpx.Response(400, json={"error": {"code": "invalid_api_key", "message": "no"}})
+    with pytest.raises(LlmError, match="400"):
+        client(recording([other], []), []).complete(MESSAGES, Summary, 0.0)

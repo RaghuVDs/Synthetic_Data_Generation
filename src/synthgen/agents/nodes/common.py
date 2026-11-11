@@ -14,7 +14,8 @@ from synthgen.agents.prompts.loader import render
 from synthgen.agents.state import JobState
 from synthgen.domain.errors import SynthgenError
 from synthgen.domain.job import ArtifactKind
-from synthgen.profiling.card import LlmSafeProfile, build_card
+from synthgen.domain.semantic import SemanticMap
+from synthgen.profiling.card import LlmSafeProfile, build_card, card_text
 from synthgen.profiling.models import TableProfile
 from synthgen.spec.models import GenerationSpec
 
@@ -88,7 +89,29 @@ def ask(  # noqa: PLR0913 - the full description of one structured call
 
 
 def as_json(value: BaseModel | Sequence[BaseModel]) -> str:
-    """Compact JSON for a prompt block."""
+    """Compact JSON for a prompt block (no spaces, no null fields)."""
     if isinstance(value, BaseModel):
-        return value.model_dump_json()
-    return json.dumps([v.model_dump(mode="json") for v in value])
+        return value.model_dump_json(exclude_none=True)
+    return json.dumps(
+        [v.model_dump(mode="json", exclude_none=True) for v in value], separators=(",", ":")
+    )
+
+
+def cards_text(state: JobState, deps: NodeDeps, roles: SemanticMap | None = None) -> str:
+    """Every table's card in the compact text form, with column roles when a map is given."""
+    return "\n\n".join(card_text(c, column_roles(roles, c.table)) for c in cards(state, deps))
+
+
+def column_roles(semantic: SemanticMap | None, table: str) -> dict[str, str] | None:
+    """Column name -> role for one table, when the map covers it."""
+    found = semantic.for_table(table) if semantic else None
+    return {c.name: str(c.role) for c in found.columns} if found else None
+
+
+def semantic_summary(semantic: SemanticMap) -> str:
+    """The map without per-column roles (those ride on the cards): grain, keys, rules."""
+    tables = [
+        t.model_dump(mode="json", exclude={"columns"}, exclude_none=True) for t in semantic.tables
+    ]
+    rules = [r.model_dump(mode="json") for r in semantic.business_rules]
+    return json.dumps({"tables": tables, "business_rules": rules}, separators=(",", ":"))

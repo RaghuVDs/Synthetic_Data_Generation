@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from synthgen.agents.meaning import check_overlays
-from synthgen.agents.nodes.common import as_json, ask, cards, job_columns
+from synthgen.agents.nodes.common import as_json, ask, cards_text, job_columns
 from synthgen.agents.nodes.deps import NodeDeps, StateUpdate
 from synthgen.agents.state import JobState
 from synthgen.domain.errors import SynthgenError
@@ -48,7 +48,7 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
         {
             "APPROVED_PLAN": as_json(plan),
             "COLUMNS": column_list(baseline),
-            "PROFILE_CARDS": as_json(cards(state, deps)),
+            "PROFILE_CARDS": cards_text(state, deps, state["semantic_map"]),
             "SPEC_ERRORS": as_json(state["spec_errors"]) if state["spec_errors"] else "none",
         },
         OverlaySet,

@@ -8,11 +8,12 @@ from __future__ import annotations
 from functools import partial
 
 from synthgen.agents.meaning import check_semantic_map
-from synthgen.agents.nodes.common import as_json, ask, cards, job_columns
+from synthgen.agents.nodes.common import ask, cards, job_columns
 from synthgen.agents.nodes.deps import NodeDeps, StateUpdate
 from synthgen.agents.state import JobState
 from synthgen.domain.job import ArtifactKind
 from synthgen.domain.semantic import SemanticMap
+from synthgen.profiling.card import card_text
 
 ROLE = "semantic_mapper"
 
@@ -31,7 +32,7 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
                 state,
                 deps,
                 ROLE,
-                {"PROFILE_CARDS": as_json(batch)},
+                {"PROFILE_CARDS": "\n\n".join(card_text(c) for c in batch)},
                 SemanticMap,
                 meaning=partial(check_semantic_map, columns=batch_columns),
             )

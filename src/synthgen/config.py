@@ -49,6 +49,7 @@ class LlmSettings(_Group):
     backoff_max_seconds: float = Field(gt=0)
     backoff_jitter: float = Field(ge=0.0, le=1.0)
     strict_output: bool
+    reasoning_effort: Literal["low", "medium", "high"] | None
     requests_per_minute: int = Field(ge=1)
 
 

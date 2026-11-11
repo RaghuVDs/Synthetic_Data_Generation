@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from synthgen.agents.meaning import check_patch
-from synthgen.agents.nodes.common import as_json, ask, cards, load_spec, spec_ref
+from synthgen.agents.nodes.common import as_json, ask, cards_text, load_spec, spec_ref
 from synthgen.agents.nodes.deps import NodeDeps, StateUpdate
 from synthgen.agents.state import JobState
 from synthgen.domain.errors import SynthgenError
@@ -29,7 +29,7 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
         {
             "FAILED_CHECKS": as_json(report.failures()),
             "OVERLAYS": as_json(spec.scenarios),
-            "PROFILE_CARDS": as_json(cards(state, deps)),
+            "PROFILE_CARDS": cards_text(state, deps, state["semantic_map"]),
         },
         SpecPatch,
         meaning=lambda value: check_patch(value, spec),

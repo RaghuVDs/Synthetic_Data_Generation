@@ -36,8 +36,8 @@ def test_mapper_runs_in_batches_above_the_limit(
     fixtures = fixture_set(
         tmp_path / "fx",
         SemanticMap=[
-            ('"table": "customers"', _one_table("customers")),
-            ('"table": "accounts"', _one_table("accounts")),
+            ("table customers (", _one_table("customers")),
+            ("table accounts (", _one_table("accounts")),
         ],
     )
     app = make_app(job_env(fixtures, SYNTHGEN_PROFILING__MAPPER_BATCH_TABLES="1"))

@@ -116,3 +116,53 @@ def _top_values(column: ColumnProfile, settings: ProfilingSettings) -> list[TopV
         TopValue(value=v.value, share=round(v.count / total, RATE_DIGITS))
         for v in shown[: settings.card_top_values]
     ]
+
+
+WHOLE_NUMBER_FROM = 10_000
+SMALL_SHARE = 0.01
+
+
+def _number(value: float) -> str:
+    """Whole numbers from ten thousand up, otherwise four significant digits."""
+    return f"{value:,.0f}" if abs(value) >= WHOLE_NUMBER_FROM else f"{value:,.4g}"
+
+
+def _share(share: float) -> str:
+    """A percentage; shares below 1% keep two decimals so rare values do not read as 0%."""
+    return f"{share:.2%}" if 0 < share < SMALL_SHARE else f"{share:.0%}"
+
+
+def _column_line(column: CardColumn, role: str | None) -> str:
+    parts = [f"- {column.name} {column.type}"]
+    if role:
+        parts[0] += f" [{role}]"
+    if column.semantic_type and column.semantic_type != column.type:
+        parts.append(column.semantic_type)
+    if column.sensitivity is not Sensitivity.PUBLIC:
+        parts.append(str(column.sensitivity))
+    if column.null_rate:
+        parts.append(f"nulls {column.null_rate:.1%}")
+    parts.append(f"{column.distinct_count:,} distinct")
+    if column.mask is not None:
+        low, high = column.length_range or (0, 0)
+        parts.append(f"mask {column.mask} length {low}-{high}")
+    elif column.five_number is not None:
+        lo, p25, p50, p75, hi = column.five_number
+        named = zip(("min", "p25", "p50", "p75", "max"), (lo, p25, p50, p75, hi), strict=True)
+        parts.append(" ".join(f"{label} {_number(v)}" for label, v in named))
+    elif column.date_range is not None:
+        parts.append(f"{column.date_range[0]} .. {column.date_range[1]}")
+    elif column.top_values:
+        parts.append("top " + ", ".join(f"{v.value} {_share(v.share)}" for v in column.top_values))
+    line = " | ".join(parts)
+    return f"{line} : {column.description}" if column.description else line
+
+
+def card_text(card: LlmSafeProfile, roles: dict[str, str] | None = None) -> str:
+    """A compact rendering for prompts: one line per column, only fields that carry information."""
+    head = f"table {card.table} ({card.row_count:,} rows)"
+    lines = [f"{head}: {card.description}" if card.description else head]
+    if card.relationships:
+        lines.append("relationships: " + "; ".join(card.relationships))
+    lines += [_column_line(c, (roles or {}).get(c.name)) for c in card.columns]
+    return "\n".join(lines)

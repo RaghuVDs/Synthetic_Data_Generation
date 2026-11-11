@@ -10,13 +10,13 @@ from pydantic import BaseModel
 from synthgen.agents.llm.client import Message, Reply, ToolDef, ToolTurn, Usage
 from synthgen.agents.llm.retry import RateLimiter, backoff_seconds
 from synthgen.agents.llm.schema import strict_schema
-from synthgen.agents.llm.structured import CallContext, StructuredLlm, numbered
+from synthgen.agents.llm.structured import CallContext, StructuredLlm, numbered, parse
 from synthgen.config import load_settings
 from synthgen.domain.errors import ConfigError, LlmError, LlmOutputError
 from synthgen.domain.intent import TestIntent
 from synthgen.domain.llm_call import CallStatus, LlmCallRecord
 from synthgen.domain.patch import SpecPatch
-from synthgen.domain.plan import ScenarioPlan
+from synthgen.domain.plan import Assertion, ScenarioPlan
 from synthgen.domain.semantic import SemanticMap
 from synthgen.domain.summary import Summary
 from synthgen.spec.models import OverlaySet
@@ -192,3 +192,17 @@ def test_call_log_round_trip(tmp_path: Path) -> None:
     log.record(entry)
     assert log.for_job("j") == [entry]
     assert log.for_job("other") == []
+
+
+def test_retries_carry_only_the_latest_answer() -> None:
+    client = Scripted("first bad", "second bad", GOOD)
+    StructuredLlm(client, MemoryLog(), 3).ask(CTX, MESSAGES, Summary, 0.0)
+    third = client.seen[2]
+    assert len(third) == len(MESSAGES) + 2
+    assert third[-2].content == "second bad"
+
+
+def test_union_errors_are_collapsed() -> None:
+    bad = {"table": "t", "column": "c", "metric": "value", "operator": "in", "value": {"x": 1}}
+    _, errors = parse(json.dumps(bad | {"window_hours": None}), Assertion)
+    assert errors == ["value: matches none of the allowed types"]

@@ -9,6 +9,7 @@ call raises LlmOutputError and the job ends as needs_review.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol, TypeVar
@@ -53,15 +54,29 @@ def numbered(errors: list[str]) -> str:
     return "\n".join(f"{i}. {e}" for i, e in enumerate(errors, start=1))
 
 
+UNION_BRANCH = re.compile(r"^(float|int|str|bool|list\[.*\]|dict\[.*\]|[A-Z]\w*)$")
+"""A location part that names one branch of a union type, e.g. `float` or `list[str]`."""
+
+
 def parse(text: str, schema: type[ModelT]) -> tuple[ModelT | None, list[str]]:
-    """Gate 2: the parsed model, or the reasons it does not parse."""
+    """Gate 2: the parsed model, or the reasons it does not parse (one line per field)."""
     try:
         return schema.model_validate_json(text), []
     except ValidationError as exc:
-        return None, [
-            f"{'.'.join(str(p) for p in err['loc']) or 'root'}: {err['msg']}"
-            for err in exc.errors()
-        ]
+        return None, _readable(exc)
+
+
+def _readable(exc: ValidationError) -> list[str]:
+    """Collapse the per-branch errors of a union field into one line."""
+    lines: dict[str, str] = {}
+    for err in exc.errors():
+        parts = [str(p) for p in err["loc"]]
+        branch = next((i for i, p in enumerate(parts) if UNION_BRANCH.match(p)), None)
+        if branch is None:
+            lines.setdefault(".".join(parts) or "root", err["msg"])
+        else:
+            lines[".".join(parts[:branch])] = "matches none of the allowed types"
+    return [f"{where}: {message}" for where, message in lines.items()]
 
 
 class StructuredLlm:
@@ -84,7 +99,7 @@ class StructuredLlm:
         """A response that passed all three gates."""
         conversation = list(messages)
         errors: list[str] = []
-        for _ in range(self._attempts):
+        for _ in range(self._attempts):  # each retry carries only the latest answer and errors
             reply = self._send(
                 ctx, conversation, lambda c: self._client.complete(c, schema, temperature)
             )
@@ -94,7 +109,8 @@ class StructuredLlm:
             self._record(ctx, conversation, reply, CallStatus.INVALID if errors else CallStatus.OK)
             if value is not None and not errors:
                 return value
-            conversation += [
+            conversation = [
+                *messages,
                 Message(role="assistant", content=reply.text),
                 Message(role="user", content=RETRY_INSTRUCTION.format(errors=numbered(errors))),
             ]

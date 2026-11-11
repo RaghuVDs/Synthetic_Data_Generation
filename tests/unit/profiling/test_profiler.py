@@ -10,7 +10,7 @@ from synthgen.config import ProfilingSettings
 from synthgen.connectors.sqlite import SqliteConnector
 from synthgen.domain.metadata import Sensitivity
 from synthgen.metadata.provider import SourceDoc, YamlMetadataProvider
-from synthgen.profiling.card import build_card
+from synthgen.profiling.card import build_card, card_text
 from synthgen.profiling.models import InferredType, StatSource, TableProfile
 from synthgen.profiling.profiler import profile_table, schema_hash
 
@@ -105,10 +105,11 @@ def test_card_hides_sensitive_values(
     card = build_card(
         profile, provider.table("customers"), provider.relationships(), profiling_settings
     )
-    text = card.model_dump_json()
     emails = [f"person{i}@mail.example" for i in range(1, 301)]
-    assert not any(e in text for e in emails)
-    assert "person" not in text
+    for text in (card.model_dump_json(), card_text(card)):
+        assert not any(e in text for e in emails)
+        assert "person" not in text
+    assert "| mask AAAAAA9" in card_text(card) and "@AAAA.AAAAAAA" in card_text(card)
     email = next(c for c in card.columns if c.name == "email")
     assert email.mask is not None and "@" in email.mask
     assert email.top_values is None and email.five_number is None
