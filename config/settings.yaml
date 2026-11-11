@@ -59,6 +59,9 @@ profiling:
   behaviour_entities: 2000            # entities whose full histories feed behaviour statistics (H)
   behaviour_key_batch: 500            # entity keys per SQL query
   max_state_columns: 3                # categorical columns given a state-transition matrix
+  max_label_columns: 2                # binary columns profiled as labels (I), rarest class first
+  max_stratified_columns: 20          # most separating columns summarised per class
+  separation_bins: 20                 # histogram bins for Jensen-Shannon on numbers and dates
   card_top_values: 5
   mapper_batch_tables: 15
   mapper_batch_columns: 250           # columns per semantic-mapper call; wider tables are sliced

@@ -186,6 +186,14 @@ class BehaviourStats(StrictModel):
     value_to_entity_median: Spread | None
 
 
+class ClassBehaviour(StrictModel):
+    """Behaviour statistics of the events of one class (group H per class)."""
+
+    label_column: str
+    value: str
+    stats: BehaviourStats
+
+
 class TransitionMatrix(StrictModel):
     """Probability of each next state given the current one, within each entity's history."""
 
@@ -221,3 +229,5 @@ class BehaviourProfile(StrictModel):
     lifetime_days: Spread
     counterparties: list[Counterparties]
     transitions: list[TransitionMatrix]
+    by_class: list[ClassBehaviour]
+    """The same statistics on the events of each class of each label candidate."""

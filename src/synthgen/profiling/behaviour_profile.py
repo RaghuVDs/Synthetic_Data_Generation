@@ -31,7 +31,7 @@ from synthgen.profiling.behaviour import (
 )
 from synthgen.profiling.fitting import fit_distributions
 from synthgen.profiling.models import ColumnProfile, InferredType
-from synthgen.profiling.relation_models import BehaviourProfile, Counterparties
+from synthgen.profiling.relation_models import BehaviourProfile, ClassBehaviour, Counterparties
 from synthgen.profiling.temporal import epoch_seconds
 
 GAP_FAMILIES = frozenset({"expon", "gamma", "lognorm"})
@@ -48,6 +48,7 @@ class EventColumns:
     measure: str | None
     states: list[ColumnProfile]
     keys: list[str]
+    labels: list[str]
 
 
 def _usable(column: ColumnProfile, keys: set[str]) -> bool:
@@ -55,7 +56,10 @@ def _usable(column: ColumnProfile, keys: set[str]) -> bool:
 
 
 def event_columns(
-    columns: Sequence[ColumnProfile], keys: list[str], settings: ProfilingSettings
+    columns: Sequence[ColumnProfile],
+    keys: list[str],
+    labels: list[str],
+    settings: ProfilingSettings,
 ) -> EventColumns | None:
     """Main timestamp (first date-time, else first date), main measure and state columns.
 
@@ -85,6 +89,7 @@ def event_columns(
         measure=measures[0].name if measures else None,
         states=states[: settings.max_state_columns],
         keys=keys,
+        labels=labels,
     )
 
 
@@ -143,7 +148,7 @@ class Events:
 
 def _events(source: EventSource, entity: str, columns: EventColumns) -> Events:
     wanted = [columns.time, *([columns.measure] if columns.measure else [])]
-    wanted += [s.name for s in columns.states]
+    wanted += [s.name for s in columns.states] + columns.labels
     frame = _histories(source, entity, [*wanted, *columns.keys])
     seconds = epoch_seconds(frame[columns.time].tolist())
     present = ~np.isnan(seconds)
@@ -195,13 +200,27 @@ def behaviour_profile(
             transitions(s.name, codes, *_codes(events.frame[s.name], by_name[s.name], settings))
             for s in columns.states
         ],
+        by_class=[found for label in columns.labels for found in _by_class(events, label)],
     )
+
+
+def _by_class(events: Events, label: str) -> list[ClassBehaviour]:
+    """Behaviour statistics on the events of each class; times stay sorted within entities."""
+    texts = events.frame[label].astype(str).where(events.frame[label].notna())
+    found: list[ClassBehaviour] = []
+    for value in sorted(texts.dropna().unique()):
+        members = (texts == value).to_numpy(bool)
+        measure = None if events.measure is None else events.measure[members]
+        stats = behaviour_stats(events.codes[members], events.time[members], measure)
+        found.append(ClassBehaviour(label_column=label, value=str(value), stats=stats))
+    return found
 
 
 def behaviour_profiles(
     source: EventSource,
     profiles: Sequence[ColumnProfile],
     relationships: Sequence[Relationship],
+    labels: list[str],
 ) -> list[BehaviourProfile]:
     """One behaviour profile per foreign key of an event table; none for other tables."""
     keys = list(
@@ -211,7 +230,7 @@ def behaviour_profiles(
             if r.child_table == source.table and not r.is_self_reference
         )
     )
-    columns = event_columns(profiles, keys, source.settings)
+    columns = event_columns(profiles, keys, labels, source.settings)
     if columns is None:
         return []
     return [behaviour_profile(source, key, columns, profiles) for key in keys]

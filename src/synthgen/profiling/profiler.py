@@ -25,6 +25,7 @@ from synthgen.profiling.behaviour_profile import EventSource, behaviour_profiles
 from synthgen.profiling.categorical import categorical_profile, sample_counts
 from synthgen.profiling.cross_column import cross_column_profile
 from synthgen.profiling.inference import Value, infer_type, semantic_type, sensitivity_for
+from synthgen.profiling.label_profile import label_candidates, stratified_profile
 from synthgen.profiling.models import (
     CategoricalProfile,
     ColumnProfile,
@@ -71,7 +72,7 @@ def profile_table(  # noqa: PLR0913 - the full context of one profiling run
     seed: int,
     now: datetime,
 ) -> TableProfile:
-    """Compute groups A to E and children-per-parent shapes for one table.
+    """Compute groups A to I for one table.
 
     `parents` holds the metadata of every parent table the relationships name. `now` is the
     reference time for future-date rates, injected so profiles are reproducible.
@@ -93,6 +94,8 @@ def profile_table(  # noqa: PLR0913 - the full context of one profiling run
         connector, meta.name, rows, settings, numeric_columns <= settings.max_fit_columns, now
     )
     columns = [_column(ctx, f) for f in facts]
+    keys = _keys(meta, relationships)
+    labels = label_candidates(columns, keys, settings)
     return TableProfile(
         source=source,
         table=meta.name,
@@ -109,7 +112,7 @@ def profile_table(  # noqa: PLR0913 - the full context of one profiling run
         ),
         sample_rows=sample.num_rows,
         columns=columns,
-        cross_column=cross_column_profile(sample, columns, _keys(meta, relationships), settings),
+        cross_column=cross_column_profile(sample, columns, keys, settings),
         relationships=[
             relationship_profile(
                 RelationshipInputs(connector, sample, columns, parents, settings, seed), r
@@ -118,8 +121,12 @@ def profile_table(  # noqa: PLR0913 - the full context of one profiling run
             if r.child_table == meta.name and not r.is_self_reference
         ],
         behaviour=behaviour_profiles(
-            EventSource(connector, meta.name, settings, seed), columns, relationships
+            EventSource(connector, meta.name, settings, seed),
+            columns,
+            relationships,
+            [label.name for label in labels],
         ),
+        stratified=[stratified_profile(sample, columns, label, keys, settings) for label in labels],
     )
 
 

@@ -1,7 +1,8 @@
-"""Label-stratified statistics (SPEC 8.3 I): class balance and class separation per column.
+"""Label-stratified statistics (SPEC 8.3 I): class separation per column.
 
-Numeric columns use the two-sample KS statistic; categorical columns use total variation
-distance between the class mixes. Both run from 0 (same) to 1 (fully separated).
+`class_separation` serves the planner's on-demand tool with the KS statistic and total
+variation distance. `numeric_separation` and `categorical_separation` serve the stored profile
+with `ks_2samp`, `wasserstein_distance` and `jensenshannon`. All run from 0 (same).
 """
 
 from __future__ import annotations
@@ -11,8 +12,11 @@ from collections.abc import Mapping, Sequence
 
 import numpy as np
 from numpy.typing import NDArray
+from scipy import stats
+from scipy.spatial import distance
 
 from synthgen.domain.base import StrictModel
+from synthgen.profiling.label_models import ColumnSeparation
 
 
 class Separation(StrictModel):
@@ -65,3 +69,54 @@ def class_separation(
             Separation(column=name, measure="total_variation", score=total_variation(pos, neg))
         )
     return sorted(scores, key=lambda s: (-s.score, s.column))
+
+
+def jensen_shannon(p: NDArray[np.float64], q: NDArray[np.float64]) -> float:
+    """Base-2 Jensen-Shannon distance of two count vectors; 0 when either is empty."""
+    if not p.sum() or not q.sum():
+        return 0.0
+    value = float(distance.jensenshannon(p, q, base=2))
+    return value if np.isfinite(value) else 0.0
+
+
+def numeric_separation(
+    column: str, kind: str, positive: NDArray[np.float64], negative: NDArray[np.float64], bins: int
+) -> ColumnSeparation:
+    """KS, scaled Wasserstein and histogram Jensen-Shannon between two non-empty samples."""
+    pooled = np.concatenate([positive, negative])
+    edges = np.histogram_bin_edges(pooled, bins=bins)
+    js = jensen_shannon(
+        np.histogram(positive, edges)[0].astype(np.float64),
+        np.histogram(negative, edges)[0].astype(np.float64),
+    )
+    ks = stats.ks_2samp(positive, negative)
+    scale = float(np.std(pooled))
+    wasserstein = float(stats.wasserstein_distance(positive, negative)) / scale if scale else 0.0
+    return ColumnSeparation(
+        column=column,
+        kind=kind,
+        ks=float(ks.statistic),
+        ks_pvalue=float(ks.pvalue),
+        wasserstein=wasserstein,
+        jensen_shannon=js,
+        score=max(float(ks.statistic), js),
+    )
+
+
+def categorical_separation(
+    column: str, positive: NDArray[np.int64], negative: NDArray[np.int64], levels: int
+) -> ColumnSeparation:
+    """Jensen-Shannon distance between the category mixes of two code arrays."""
+    js = jensen_shannon(
+        np.bincount(positive, minlength=levels).astype(np.float64),
+        np.bincount(negative, minlength=levels).astype(np.float64),
+    )
+    return ColumnSeparation(
+        column=column,
+        kind="categorical",
+        ks=None,
+        ks_pvalue=None,
+        wasserstein=None,
+        jensen_shannon=js,
+        score=js,
+    )

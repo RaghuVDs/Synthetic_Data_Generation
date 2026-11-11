@@ -10,6 +10,7 @@ from typing import Generic, TypeVar
 
 from synthgen.domain.base import StrictModel
 from synthgen.domain.metadata import Sensitivity
+from synthgen.profiling.label_models import StratifiedProfile
 from synthgen.profiling.relation_models import (
     BehaviourProfile,
     CrossColumnProfile,
@@ -191,6 +192,7 @@ class TableProfile(StrictModel):
     cross_column: CrossColumnProfile
     relationships: list[ChildrenPerParent]
     behaviour: list[BehaviourProfile]
+    stratified: list[StratifiedProfile]
 
     def column(self, name: str) -> ColumnProfile | None:
         """One column's profile, or None when the table has no such column."""
