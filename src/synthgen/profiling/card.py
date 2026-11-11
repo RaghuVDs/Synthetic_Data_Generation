@@ -166,3 +166,33 @@ def card_text(card: LlmSafeProfile, roles: dict[str, str] | None = None) -> str:
         lines.append("relationships: " + "; ".join(card.relationships))
     lines += [_column_line(c, (roles or {}).get(c.name)) for c in card.columns]
     return "\n".join(lines)
+
+
+KEY_ROLES = frozenset(
+    {"identifier", "entity_key", "foreign_key", "event_time", "label", "status", "category"}
+)
+"""Roles whose columns keep full card lines in a wide-table summary."""
+
+
+def card_slice(card: LlmSafeProfile, names: set[str]) -> LlmSafeProfile:
+    """The card with only the named columns."""
+    return card.model_copy(update={"columns": [c for c in card.columns if c.name in names]})
+
+
+def wide_card_text(card: LlmSafeProfile, roles: dict[str, str], keep: set[str], limit: int) -> str:
+    """A wide table: full lines for kept and key-role columns (up to `limit`), names for the rest.
+
+    Statistics of any listed column are one `get_column_profile` call away for the planner.
+    """
+    full = [c for c in card.columns if c.name in keep or roles.get(c.name) in KEY_ROLES][:limit]
+    shown = {c.name for c in full}
+    others: dict[str, list[str]] = {}
+    for column in card.columns:
+        if column.name not in shown:
+            others.setdefault(roles.get(column.name, "unmapped"), []).append(column.name)
+    lines = [card_text(card_slice(card, shown), roles)]
+    lines += [
+        f"{role} columns ({len(names)}): {', '.join(names)}"
+        for role, names in sorted(others.items())
+    ]
+    return "\n".join(lines)

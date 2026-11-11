@@ -40,8 +40,15 @@ def check_intent(intent: TestIntent, max_rows: int) -> list[str]:
     return []
 
 
-def check_semantic_map(semantic: SemanticMap, columns: Columns) -> list[str]:
-    """Every table once, every column of it once, and keys that exist."""
+def check_semantic_map(
+    semantic: SemanticMap, columns: Columns, key_columns: Columns | None = None
+) -> list[str]:
+    """Every table once, every given column of it once, and keys that exist.
+
+    `columns` are the columns this answer must map (a slice of a wide table); `key_columns`, when
+    given, are all of each table's columns, since a key may sit in another slice.
+    """
+    keys = key_columns or columns
     problems: list[str] = []
     seen = [t.table for t in semantic.tables]
     problems += [f"table {t} is not mapped" for t in columns if t not in seen]
@@ -55,9 +62,9 @@ def check_semantic_map(semantic: SemanticMap, columns: Columns) -> list[str]:
         problems += [f"column {table.table}.{c} is not mapped" for c in known if c not in named]
         problems += [f"unknown column {table.table}.{c}" for c in named if c not in known]
         for key in (table.entity_key, table.event_time, table.label_column):
-            if key is not None and key not in known:
+            if key is not None and key not in keys.get(table.table, known):
                 problems.append(f"unknown key column {table.table}.{key}")
-    every = {c for cols in columns.values() for c in cols}
+    every = {c for cols in keys.values() for c in cols}
     for rule in semantic.business_rules:
         problems += [
             f"business rule names unknown column {c!r}"

@@ -71,6 +71,8 @@ class ProfilingSettings(_Group):
     shapiro_max_rows: int = Field(ge=3)
     card_top_values: int = Field(ge=1)
     mapper_batch_tables: int = Field(ge=1)
+    mapper_batch_columns: int = Field(ge=1)
+    card_max_columns: int = Field(ge=1)
 
 
 class GenerationSettings(_Group):

@@ -35,6 +35,8 @@ profiling:
   shapiro_max_rows: 5000
   card_top_values: 5
   mapper_batch_tables: 15
+  mapper_batch_columns: 250           # columns per semantic-mapper call; wider tables are sliced
+  card_max_columns: 150               # wider tables get a summary card in planner prompts
 
 generation:
   default_root_rows: 1000

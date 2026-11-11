@@ -9,9 +9,18 @@ from synthgen.agents.state import JobState
 from synthgen.domain.errors import SynthgenError
 from synthgen.domain.job import ArtifactKind
 from synthgen.domain.patch import SpecPatch
+from synthgen.domain.report import ValidationReport
+from synthgen.spec.models import GenerationSpec
 from synthgen.spec.patch import apply_patch
 
 ROLE = "repair_analyst"
+
+
+def repair_columns(spec: GenerationSpec, report: ValidationReport) -> set[tuple[str, str]]:
+    """Columns the overlays change or label, and the columns of failed checks."""
+    found = {(o.table, o.column) for s in spec.scenarios for o in s.overrides}
+    found |= {(lb.table, lb.column) for s in spec.scenarios for lb in s.labels}
+    return found | {(f.table, f.column) for f in report.failures() if f.column}
 
 
 def run(state: JobState, deps: NodeDeps) -> StateUpdate:
@@ -29,7 +38,9 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
         {
             "FAILED_CHECKS": as_json(report.failures()),
             "OVERLAYS": as_json(spec.scenarios),
-            "PROFILE_CARDS": cards_text(state, deps, state["semantic_map"]),
+            "PROFILE_CARDS": cards_text(
+                state, deps, state["semantic_map"], repair_columns(spec, report)
+            ),
         },
         SpecPatch,
         meaning=lambda value: check_patch(value, spec),

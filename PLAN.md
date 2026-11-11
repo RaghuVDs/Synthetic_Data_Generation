@@ -436,7 +436,7 @@ confirmed or corrected it moves to section 3.
   - [x] T3.12 Wide-table profiling: aggregates and samples in column batches
     (`profiling.max_select_columns`). Tests: 1,500 columns on stdlib SQLite,
     3,000 columns on the wide build.
-  - [ ] T3.13 Wide-table prompts: mapper batches columns within a table
+  - [x] T3.13 Wide-table prompts: mapper batches columns within a table
     (`profiling.mapper_batch_columns`); planner, overlay writer and repair
     analyst receive role-bearing and lever columns only once a table exceeds
     `profiling.card_max_columns`. Tests with a 3,000-column card.

@@ -15,7 +15,7 @@ from synthgen.agents.state import JobState
 from synthgen.domain.errors import SynthgenError
 from synthgen.domain.job import ArtifactKind
 from synthgen.domain.semantic import SemanticMap
-from synthgen.profiling.card import LlmSafeProfile, build_card, card_text
+from synthgen.profiling.card import LlmSafeProfile, build_card, card_text, wide_card_text
 from synthgen.profiling.models import TableProfile
 from synthgen.spec.models import GenerationSpec
 
@@ -97,9 +97,31 @@ def as_json(value: BaseModel | Sequence[BaseModel]) -> str:
     )
 
 
-def cards_text(state: JobState, deps: NodeDeps, roles: SemanticMap | None = None) -> str:
-    """Every table's card in the compact text form, with column roles when a map is given."""
-    return "\n\n".join(card_text(c, column_roles(roles, c.table)) for c in cards(state, deps))
+Focus = set[tuple[str, str]]
+"""(table, column) pairs a prompt must show in full even in a wide table."""
+
+
+def render_cards(
+    all_cards: Sequence[LlmSafeProfile], roles: SemanticMap | None, limit: int, focus: Focus
+) -> str:
+    """Full cards for tables up to `limit` columns, and summaries for wider ones.
+
+    A summary keeps the focus and key-role columns in full and lists the rest by name and role.
+    """
+    parts = []
+    for card in all_cards:
+        table_roles = column_roles(roles, card.table) or {}
+        if len(card.columns) <= limit:
+            parts.append(card_text(card, table_roles))
+        else:
+            keep = {column for table, column in focus if table == card.table}
+            parts.append(wide_card_text(card, table_roles, keep, limit))
+    return "\n\n".join(parts)
+
+
+def cards_text(state: JobState, deps: NodeDeps, roles: SemanticMap | None, focus: Focus) -> str:
+    """Every job table's card for a prompt, wide tables summarised around `focus`."""
+    return render_cards(cards(state, deps), roles, deps.settings.profiling.card_max_columns, focus)
 
 
 def column_roles(semantic: SemanticMap | None, table: str) -> dict[str, str] | None:

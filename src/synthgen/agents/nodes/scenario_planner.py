@@ -17,9 +17,9 @@ from synthgen.agents.nodes.common import (
     as_json,
     ask,
     cards,
-    column_roles,
     job_columns,
     load_profile,
+    render_cards,
     semantic_summary,
 )
 from synthgen.agents.nodes.deps import NodeDeps, StateUpdate
@@ -31,7 +31,7 @@ from synthgen.domain.errors import SynthgenError
 from synthgen.domain.job import ApprovalDecision, ArtifactKind
 from synthgen.domain.plan import ScenarioPlan
 from synthgen.domain.semantic import ColumnRole, SemanticMap
-from synthgen.profiling.card import LlmSafeProfile, card_text
+from synthgen.profiling.card import LlmSafeProfile
 from synthgen.scenarios.feasibility import check_feasibility
 from synthgen.scenarios.profile_derived import candidates_text, profile_candidates
 
@@ -107,9 +107,11 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
     blocks = {
         "INTENT": as_json(intent),
         "SEMANTIC_MAP": semantic_summary(semantic_map),
-        "PROFILE_CARDS": "\n\n".join(
-            card_text(c, column_roles(semantic_map, c.table))
-            for c in role_bearing(cards(state, deps), semantic_map, limit)
+        "PROFILE_CARDS": render_cards(
+            role_bearing(cards(state, deps), semantic_map, limit),
+            semantic_map,
+            deps.settings.profiling.card_max_columns,
+            set(),
         ),
         "PROFILE_CANDIDATES": candidates_text(
             profile_candidates(profiles, semantic_map, intent.include_invalid)

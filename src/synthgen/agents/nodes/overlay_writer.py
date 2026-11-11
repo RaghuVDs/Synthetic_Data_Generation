@@ -42,13 +42,19 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
         {
             "APPROVED_PLAN": as_json(plan),
             "NOT_EXPRESSIBLE_PARTS": feasibility_notes(state, expected),
-            "PROFILE_CARDS": cards_text(state, deps, state["semantic_map"]),
+            "PROFILE_CARDS": cards_text(state, deps, state["semantic_map"], plan_columns(plan)),
             "SPEC_ERRORS": as_json(state["spec_errors"]) if state["spec_errors"] else "none",
         },
         OverlaySet,
         meaning=lambda value: check_overlays(value, expected, columns),
     )
     return {"overlays": approved_shares(overlays, plan), "spec_ref": None, "counters": counters}
+
+
+def plan_columns(plan: ScenarioPlan) -> set[tuple[str, str]]:
+    """Every (table, column) a plan's levers or signatures touch."""
+    found = {(lv.table, lv.column) for s in plan.scenarios for lv in s.levers}
+    return found | {(a.table, a.column) for s in plan.scenarios for a in s.signature}
 
 
 def generable(plan: ScenarioPlan, state: JobState) -> ScenarioPlan:
