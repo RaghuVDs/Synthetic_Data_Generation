@@ -256,6 +256,45 @@ confirmed or corrected it moves to section 3.
   only change label columns; label levers next to data levers are accepted and
   shown as "label set by the overlay". The overlay writer is told which levers
   are not expressible and must leave them out.
+- 2026-11-11 (M4): Wide tables keep profiling linear in width. With more than
+  `profiling.max_fit_columns` numeric columns, only the closed-form fits
+  (norm, lognorm, expon, uniform) run and only the best is KS-tested; KDE
+  modes and normality tests are skipped. Pairwise statistics (group F) use at
+  most `max_pair_columns` columns (dates and booleans first, then the most
+  variable) on `pair_sample_size` rows; only strong pairs
+  (`strong_association`) are stored. Null co-occurrence looks only at null
+  masks, so it also covers constant and sensitive columns.
+- 2026-11-11 (M4): Within-table ordering rules (a <= b) are recorded only
+  when the two ranges overlap; an order the ranges already imply (birth date
+  before signup) adds nothing the marginals do not enforce. Cross-table date
+  order (child on or after parent) is recorded per relationship.
+- 2026-11-11 (M4): Behaviour (group H) reads the full histories of a seeded
+  sample of `behaviour_entities` entities through grouped SQL with an `IN`
+  filter; a row sample would stretch the gaps between events. The main
+  timestamp is the first date-time column (else the first date), the measure
+  is the first float column (else integer), and state columns are categorical
+  with 2 to `max_conditional_levels` levels.
+- 2026-11-11 (M4): The label column is named by the semantic mapper, which
+  runs after profiling. The profiler therefore profiles label candidates
+  (group I, and H per class): binary, non-key, non-sensitive columns, boolean
+  flags first and then the rarest minority, at most `max_label_columns`. Any
+  other label goes through `get_class_separation` on demand. A date-time
+  column is also scored on its hour of day and keeps the stronger score.
+- 2026-11-11 (M4): Sensitivity lives in `profiling/privacy.py`; internal
+  values under `internal_min_count` rows fold in every stored statistic, and
+  every profile passes a privacy guard (`PrivacyError` otherwise). The card
+  still filters internal values because it is the LLM boundary. The cache is
+  the M2 `storage/profile_store.py` plus `profiling/cache.py` (not a new
+  `storage/profile_cache.py`); its schema hash now also covers sensitivity
+  tags and a `PROFILE_FORMAT` number, so retagged tables and profiles of an
+  older shape miss the cache. Storing unchanged content refreshes its age (a
+  bug made week-old profiles recompute on every request).
+- 2026-11-11 (M4): `profile_table` takes the reference time `now` (future-date
+  rates) and the parent tables' metadata (`parents`, for parent date and
+  category columns). Sentinel dates are counted but left out of trend,
+  seasonality, gaps and growth; ranges over `max_series_days` skip trend and
+  seasonality. Growth counts rows per month, or per year past
+  `max_series_months`.
 
 ## 4. Milestones
 
@@ -617,3 +656,11 @@ confirmed or corrected it moves to section 3.
   rows, 0 of 104 checks failed) and an orders late-delivery job with no
   templates produced a sensible plan. Added wide tables (3,000 columns via
   `make sqlite-wide`) and Llama-compatible output modes (T3.11-T3.14).
+- 2026-11-11 M4 Full profiler done: `make check` passes (668 tests, no
+  warnings, 98% coverage). Groups C-I, privacy classes with folding and a
+  guard, cache reuse rules tested. The recovery test on the finance seed finds
+  log-normal amounts and incomes, Zipf keys (0.95 for 0.9, 0.84 for 0.7), the
+  hour and weekday mix (total variation 0.013 and 0.009), the exact fraud
+  count, income-score Spearman 0.83, and date orders. `profile --source
+  finance --tables transactions` profiles 200,000 rows in about 15 s; a
+  3,000-column table profiles in about 17 s.
