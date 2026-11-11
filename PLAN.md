@@ -240,6 +240,22 @@ confirmed or corrected it moves to section 3.
   rest of the system works in column batches so width is never bounded by one
   SQL statement or one prompt.
 - 2026-11-11: Pacing (user): stop for review after each milestone.
+- 2026-11-11 (M3): Uniqueness is taken from declared constraints only (primary
+  keys, single-column UNIQUE constraints and unique indexes, read from
+  `PRAGMA index_list`), never from "all sampled values distinct"; the latter
+  made timestamps "unique" and broke valid overlays. Declared-unique text
+  columns are generated from masks, not from observed values.
+- 2026-11-11 (M3): The Groq live finance run is kept as a recorded fixture set
+  (`tests/fixtures/llm/live_finance/`) and replayed offline through every gate;
+  the replay found and fixed two bugs (unique names, unique timestamps).
+- 2026-11-11 (M3): Signature metrics gained `hour_of_day`, `min` and `max`;
+  signature values are a number, text, boolean or one list of numbers or text
+  (Groq rejects unions it cannot tell apart, e.g. two list types or integer
+  with number), and the strict-schema builder now rejects such unions offline.
+- 2026-11-11 (M3): Plans may not contain `typical` scenarios or scenarios that
+  only change label columns; label levers next to data levers are accepted and
+  shown as "label set by the overlay". The overlay writer is told which levers
+  are not expressible and must leave them out.
 
 ## 4. Milestones
 
@@ -595,3 +611,9 @@ confirmed or corrected it moves to section 3.
   warnings, 98% coverage on domain/spec/engine/validation). A stub run on
   finance customers,accounts completes; a job killed with SIGKILL during final
   validation completed with `resume` (1,249,975 rows, 0 of 43 checks failed).
+- 2026-11-11 M3 Real agents done except T3.10 (live check deferred to the
+  user's Llama run): `make check` passes (585 tests, 98% coverage). Live on
+  Groq gpt-oss-120b: a finance card-fraud job completed end to end (14,921
+  rows, 0 of 104 checks failed) and an orders late-delivery job with no
+  templates produced a sensible plan. Added wide tables (3,000 columns via
+  `make sqlite-wide`) and Llama-compatible output modes (T3.11-T3.14).
