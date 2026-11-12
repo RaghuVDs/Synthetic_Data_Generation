@@ -539,7 +539,7 @@ confirmed or corrected it moves to section 3.
   workers, reproducible at 1,000,000 rows.
 - **Spec sections:** 7.2, 8.4, 8.5, 10 (chunk errors).
 - **Tasks:**
-  - [ ] T5.1 Expression grammar: `spec/expressions.py` (tokenizer, parser,
+  - [x] T5.1 Expression grammar: `spec/expressions.py` (tokenizer, parser,
     vectorised evaluator; arithmetic, comparisons, if/else, min, max, round,
     date add/diff, concat, column refs). Tests incl. rejected input.
   - [ ] T5.2 Remaining generators: `engine/generators/` (distribution,

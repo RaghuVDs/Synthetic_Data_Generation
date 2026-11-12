@@ -63,3 +63,7 @@ class ToolArgumentError(SynthgenError):
 
 class PrivacyError(SynthgenError):
     """A profile would store a value its column's sensitivity class forbids."""
+
+
+class ExpressionError(SynthgenError):
+    """A derived expression is outside the whitelisted grammar or misuses a type."""
