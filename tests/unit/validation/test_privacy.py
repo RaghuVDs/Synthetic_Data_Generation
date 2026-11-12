@@ -223,3 +223,27 @@ def test_without_a_source_privacy_is_info(
         tmp_path,
     )
     assert [r.status for r in found.values()] == [CheckStatus.INFO]
+
+
+def test_leaks_in_scenario_rows_are_traced(
+    source: tuple[SqliteConnector, YamlMetadataProvider],
+    profiling_settings: ProfilingSettings,
+    tmp_path: Path,
+) -> None:
+    everyone = {
+        "name": "all",
+        "category": "rare",
+        "share": 1.0,
+        "unit": "entity",
+        "entity": "people",
+        "labels": [],
+        "overrides": [],
+        "correlations": [],
+        "cardinality": [],
+        "sequences": [],
+        "defects": [],
+    }
+    _, inputs = _setup(source, profiling_settings, tmp_path, [everyone])
+    _overwrite(tmp_path, {"email": "secret3@corp.test"})
+    result = _privacy(inputs, tmp_path)[("exact_match", "email")]
+    assert (result.status, result.scenario) == (CheckStatus.FAIL, "all")

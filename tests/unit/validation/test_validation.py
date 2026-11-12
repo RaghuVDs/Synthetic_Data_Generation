@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pyarrow as pa
@@ -43,7 +44,10 @@ def test_clean_output_passes(tmp_path: Path, settings: ValidationSettings) -> No
     generate_dataset(spec, tmp_path, RunOptions(), GENERATION)
     report = validate_output(_inputs(spec, RunOptions(), settings), tmp_path)
     assert report.passed, report.failures()
-    assert (tmp_path / REPORT_FILE).is_file()
+    written = json.loads((tmp_path / REPORT_FILE).read_text(encoding="utf-8"))
+    assert written["passed"] is True
+    assert written["counts"]["integrity"]["pass"] > 0
+    assert len(written["results"]) == len(report.results)
     families = {r.family for r in report.results}
     assert families == set(CheckFamily)
 

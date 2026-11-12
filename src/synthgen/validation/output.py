@@ -61,6 +61,11 @@ class OutputData:
         """The manifest entry of a table, or None when it was not written."""
         return self._manifest.table(table)
 
+    def rows(self, table: str) -> int:
+        """Rows written for a table (0 when it was not written)."""
+        entry = self.entry(table)
+        return entry.rows if entry else 0
+
     def column(self, table: str, name: str) -> Cells:
         """One whole column, in row order."""
         entry = self.entry(table)

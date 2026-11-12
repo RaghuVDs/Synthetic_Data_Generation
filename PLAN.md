@@ -485,6 +485,12 @@ confirmed or corrected it moves to section 3.
   in fewer than `internal_min_count` rows. `text_pool_values` (A14) looks every
   model-written pool value up in every sensitive text column, traced to the
   scenario. Without an open source privacy reports one info row.
+- 2026-11-12 (M6): `validation_report.json` holds `passed`, counts per family
+  and status, and every row (check, table, column, metric, value, threshold,
+  status, scenario, detail). Failure tracing (A5) covers integrity and every
+  privacy check: a failure names the scenarios of its failing rows only when
+  none of them is typical, so routing sends it to repair; otherwise the job
+  fails. Scenario-family rows always name their scenario; fidelity rows never.
 
 ## 4. Milestones
 
@@ -771,7 +777,7 @@ confirmed or corrected it moves to section 3.
     `validation/scenario.py` (share, presence, signature ≥ 99%, KS ≥ 0.30,
     near-miss = 0, labels vs manifest). Tests.
   - [x] T6.4 Privacy family: `validation/privacy.py` (per Q7). Tests.
-  - [ ] T6.5 Report and failure tracing: `validation/report.py`,
+  - [x] T6.5 Report and failure tracing: `validation/report.py`,
     `validation_report.json`, overlay tracing for routing (A5). Tests.
   - [ ] T6.6 Repair loop: repair prompt fed failing report rows; integration
     tests `tests/integration/test_repair.py` (seeded failure repaired; injected

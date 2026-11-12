@@ -50,6 +50,14 @@ class ValidationReport(StrictModel):
         """True when no check failed."""
         return not self.failures()
 
+    def counts(self) -> dict[str, dict[str, int]]:
+        """How many checks of each family ended in each status."""
+        found: dict[str, dict[str, int]] = {}
+        for r in self.results:
+            family = found.setdefault(r.family.value, {})
+            family[r.status.value] = family.get(r.status.value, 0) + 1
+        return found
+
     def failures(self, family: CheckFamily | None = None) -> list[CheckResult]:
         """Failed checks, optionally limited to one family."""
         return [

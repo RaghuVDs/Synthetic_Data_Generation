@@ -17,15 +17,18 @@ import math
 from collections.abc import Iterable
 
 import numpy as np
+from numpy.typing import NDArray
 
 from synthgen.domain.metadata import Sensitivity
 from synthgen.domain.ports import Connector
 from synthgen.domain.report import CheckFamily, CheckResult, CheckStatus
+from synthgen.engine.schema import SCENARIO_COLUMN
 from synthgen.profiling.models import TableProfile
 from synthgen.spec.generators import SemanticGen, SemanticKind, TextPoolGen
 from synthgen.spec.models import ColumnType, GenerationSpec, TableSpec
+from synthgen.validation.integrity_rules import traced
 from synthgen.validation.lookup import source_counts
-from synthgen.validation.output import Cells, OutputData, ValidationInputs
+from synthgen.validation.output import OutputData, ValidationInputs
 
 _TIMES = (ColumnType.DATE, ColumnType.DATETIME)
 LOW_ENTROPY = frozenset(
@@ -86,10 +89,11 @@ def check_privacy(inputs: ValidationInputs, data: OutputData) -> list[CheckResul
     return results
 
 
-def _sample(values: Cells, limit: int) -> Cells:
-    if values.size <= limit:
-        return values
-    return values[np.sort(np.random.default_rng(0).choice(values.size, size=limit, replace=False))]
+def _sample(rows: int, limit: int) -> NDArray[np.int64]:
+    """At most `limit` row positions, chosen with a fixed seed so reports are reproducible."""
+    if rows <= limit:
+        return np.arange(rows, dtype=np.int64)
+    return np.sort(np.random.default_rng(0).choice(rows, size=limit, replace=False))
 
 
 def _exact_matches(
@@ -105,11 +109,14 @@ def _exact_matches(
         stats = profile.column(column.name)
         if stats is None:
             continue
-        values = _sample(data.column(table.name, column.name), settings.privacy_sample_size)
+        column_values = data.column(table.name, column.name)
+        rows = _sample(column_values.size, settings.privacy_sample_size)
+        values = column_values[rows]
         found = source_counts(
             source, table.name, column.name, values.tolist(), settings.privacy_lookup_batch
         )
-        matches = float(sum(1 for v in values.tolist() if v is not None and str(v) in found))
+        hit = np.array([v is not None and str(v) in found for v in values.tolist()], dtype=bool)
+        scenario = traced(hit, data.label(table.name, SCENARIO_COLUMN)[rows])
         identifier = (
             stats.cardinality_ratio.value >= settings.privacy_identifier_min_ratio
             and column.type not in _TIMES
@@ -120,7 +127,12 @@ def _exact_matches(
         detail = None if identifier else "not identifier-like; reported only"
         results.append(
             _result(
-                (table.name, column.name), "exact_match", matches, hard=identifier, detail=detail
+                (table.name, column.name),
+                "exact_match",
+                float(hit.sum()),
+                hard=identifier,
+                detail=detail,
+                scenario=scenario,
             )
         )
     return results
@@ -149,8 +161,17 @@ def _suppressed(
             source, table.name, column.name, unseen, inputs.settings.privacy_lookup_batch
         )
         rare = {v for v, n in found.items() if n < inputs.min_value_count}
-        hits = float(sum(1 for v in values.tolist() if v is not None and str(v) in rare))
-        results.append(_result((table.name, column.name), "suppressed_values", hits, hard=True))
+        hit = np.array([v is not None and str(v) in rare for v in values.tolist()], dtype=bool)
+        scenario = traced(hit, data.label(table.name, SCENARIO_COLUMN))
+        results.append(
+            _result(
+                (table.name, column.name),
+                "suppressed_values",
+                float(hit.sum()),
+                hard=True,
+                scenario=scenario,
+            )
+        )
     return results
 
 
@@ -197,12 +218,12 @@ def _row_hashes(
         )
     sampled = source.sample(table.name, names, profile.sample_rows, inputs.profile_seed)
     known = _digests(zip(*(sampled.column(n).to_pylist() for n in names), strict=True))
-    columns = [
-        _sample(data.column(table.name, n), inputs.settings.privacy_sample_size) for n in names
-    ]
+    rows = _sample(data.rows(table.name), inputs.settings.privacy_sample_size)
+    columns = [data.column(table.name, n)[rows] for n in names]
     synthetic = [_digests([row]) for row in zip(*(c.tolist() for c in columns), strict=True)]
-    matches = float(sum(1 for digest in synthetic if digest & known))
-    return _result(where, "row_hash", matches, hard=True)
+    hit = np.array([bool(digest & known) for digest in synthetic], dtype=bool)
+    scenario = traced(hit, data.label(table.name, SCENARIO_COLUMN)[rows])
+    return _result(where, "row_hash", float(hit.sum()), hard=True, scenario=scenario)
 
 
 def _distinct(profile: TableProfile, name: str) -> int:
