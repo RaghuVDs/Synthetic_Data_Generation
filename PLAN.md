@@ -409,6 +409,13 @@ confirmed or corrected it moves to section 3.
   the generation settings except `workers`) matches skips the parts it lists,
   otherwise the data folder is cleared. `generate_dataset` takes `workers`
   (from the job request) and an injectable chunk runner for tests.
+- 2026-11-12 (M5): The scale fixture `tests/fixtures/specs/finance_1m.json` is
+  written by hand (not compiled from a profile) and uses most constructs:
+  semantic pools with a unique email counter, Luhn card numbers, a copula,
+  lognormal and empirical marginals, Zipf merchant keys, derived columns,
+  parent-date orders, a range constraint, a card-testing sequence and two
+  override scenarios; transactions have a target of exactly 1,000,000 rows.
+  The slow test runs it with 2 workers and again with 1, and compares bytes.
 
 ## 4. Milestones
 
@@ -675,7 +682,7 @@ confirmed or corrected it moves to section 3.
   - [x] T5.8 Workers and chunk recovery: `engine/runner.py` (process pool,
     retry 3 with same seed, skip chunks in manifest, remove partial files).
     Tests: `--workers 1` vs `2` byte-identical; resume skips done chunks.
-  - [ ] T5.9 Scale test: `tests/fixtures/specs/finance_1m.json`,
+  - [x] T5.9 Scale test: `tests/fixtures/specs/finance_1m.json`,
     `tests/integration/test_engine_scale.py` (`slow`).
 - **Acceptance:** `make test-slow` generates 1,000,000 rows from the
   hand-written spec and a rerun is byte-identical; `make check` passes.

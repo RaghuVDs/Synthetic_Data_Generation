@@ -1,0 +1,906 @@
+{
+  "version": 2,
+  "seed": 20261112,
+  "profile_versions": [],
+  "tables": [
+    {
+      "name": "customers",
+      "row_rule": {
+        "kind": "fixed",
+        "rows": 50000
+      },
+      "columns": [
+        {
+          "name": "customer_id",
+          "type": "integer",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": true,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "sequence",
+            "start": 1,
+            "step": 1
+          }
+        },
+        {
+          "name": "first_name",
+          "type": "text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": true,
+          "generator": {
+            "type": "semantic",
+            "kind": "first_name"
+          }
+        },
+        {
+          "name": "last_name",
+          "type": "text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": true,
+          "generator": {
+            "type": "semantic",
+            "kind": "last_name"
+          }
+        },
+        {
+          "name": "email",
+          "type": "text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": true,
+          "sensitive": true,
+          "generator": {
+            "type": "semantic",
+            "kind": "email"
+          }
+        },
+        {
+          "name": "date_of_birth",
+          "type": "date",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": true,
+          "generator": {
+            "type": "semantic",
+            "kind": "date_of_birth"
+          }
+        },
+        {
+          "name": "segment",
+          "type": "text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "categorical",
+            "values": [
+              "retail",
+              "premium",
+              "business"
+            ],
+            "weights": [
+              0.8,
+              0.15,
+              0.05
+            ]
+          }
+        },
+        {
+          "name": "signup_date",
+          "type": "date",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "datetime",
+            "start": "2015-01-01",
+            "end": "2023-12-31",
+            "granularity": "date",
+            "weekday_weights": null,
+            "hour_weights": null
+          }
+        },
+        {
+          "name": "annual_income",
+          "type": "float",
+          "nullable": true,
+          "null_rate": 0.05,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "distribution",
+            "family": "lognorm",
+            "params": [
+              0.6,
+              0.0,
+              42000.0
+            ],
+            "minimum": 5000.0,
+            "maximum": 2000000.0,
+            "decimals": 0
+          }
+        },
+        {
+          "name": "credit_score",
+          "type": "integer",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "empirical",
+            "quantiles": [
+              300,
+              560,
+              640,
+              700,
+              760,
+              850
+            ],
+            "decimals": 0
+          }
+        }
+      ],
+      "correlation": {
+        "columns": [
+          "annual_income",
+          "credit_score"
+        ],
+        "spearman": [
+          [
+            1.0,
+            0.8
+          ],
+          [
+            0.8,
+            1.0
+          ]
+        ]
+      },
+      "constraints": []
+    },
+    {
+      "name": "accounts",
+      "row_rule": {
+        "kind": "per_parent",
+        "parent_table": "customers",
+        "parent_column": "customer_id",
+        "child_column": "customer_id",
+        "counts": [
+          {
+            "children": 1,
+            "weight": 0.6
+          },
+          {
+            "children": 2,
+            "weight": 0.3
+          },
+          {
+            "children": 3,
+            "weight": 0.1
+          }
+        ],
+        "target_rows": null
+      },
+      "columns": [
+        {
+          "name": "account_id",
+          "type": "integer",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": true,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "sequence",
+            "start": 1,
+            "step": 1
+          }
+        },
+        {
+          "name": "customer_id",
+          "type": "integer",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "foreign_key",
+            "parent_table": "customers",
+            "parent_column": "customer_id",
+            "distribution": "uniform",
+            "exponent": null,
+            "hot_keys": null,
+            "hot_share": null,
+            "group_size": null
+          }
+        },
+        {
+          "name": "account_type",
+          "type": "text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "categorical",
+            "values": [
+              "checking",
+              "savings",
+              "credit"
+            ],
+            "weights": [
+              0.6,
+              0.25,
+              0.15
+            ]
+          }
+        },
+        {
+          "name": "opened_date",
+          "type": "date",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "datetime",
+            "start": "2015-01-01",
+            "end": "2024-06-30",
+            "granularity": "date",
+            "weekday_weights": null,
+            "hour_weights": null
+          }
+        },
+        {
+          "name": "balance",
+          "type": "float",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "empirical",
+            "quantiles": [
+              0,
+              150,
+              1200,
+              4500,
+              25000
+            ],
+            "decimals": 2
+          }
+        }
+      ],
+      "correlation": null,
+      "constraints": [
+        {
+          "kind": "order",
+          "lower": "customers.signup_date",
+          "upper": "opened_date"
+        }
+      ]
+    },
+    {
+      "name": "cards",
+      "row_rule": {
+        "kind": "per_parent",
+        "parent_table": "accounts",
+        "parent_column": "account_id",
+        "child_column": "account_id",
+        "counts": [
+          {
+            "children": 1,
+            "weight": 0.85
+          },
+          {
+            "children": 2,
+            "weight": 0.15
+          }
+        ],
+        "target_rows": null
+      },
+      "columns": [
+        {
+          "name": "card_id",
+          "type": "integer",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": true,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "sequence",
+            "start": 1,
+            "step": 1
+          }
+        },
+        {
+          "name": "account_id",
+          "type": "integer",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "foreign_key",
+            "parent_table": "accounts",
+            "parent_column": "account_id",
+            "distribution": "uniform",
+            "exponent": null,
+            "hot_keys": null,
+            "hot_share": null,
+            "group_size": null
+          }
+        },
+        {
+          "name": "card_number",
+          "type": "text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": true,
+          "sensitive": true,
+          "generator": {
+            "type": "pattern",
+            "masks": [
+              "9999999999999999"
+            ],
+            "weights": [
+              1.0
+            ],
+            "check_digit": "luhn"
+          }
+        },
+        {
+          "name": "network",
+          "type": "text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "categorical",
+            "values": [
+              "visa",
+              "mastercard",
+              "amex"
+            ],
+            "weights": [
+              0.55,
+              0.35,
+              0.1
+            ]
+          }
+        },
+        {
+          "name": "issued_date",
+          "type": "date",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "datetime",
+            "start": "2016-01-01",
+            "end": "2024-06-30",
+            "granularity": "date",
+            "weekday_weights": null,
+            "hour_weights": null
+          }
+        },
+        {
+          "name": "expiry_date",
+          "type": "date",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "derived",
+            "expression": "date_add(issued_date, 208, 'weeks')"
+          }
+        }
+      ],
+      "correlation": null,
+      "constraints": [
+        {
+          "kind": "order",
+          "lower": "accounts.opened_date",
+          "upper": "issued_date"
+        }
+      ]
+    },
+    {
+      "name": "merchants",
+      "row_rule": {
+        "kind": "fixed",
+        "rows": 5000
+      },
+      "columns": [
+        {
+          "name": "merchant_id",
+          "type": "integer",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": true,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "sequence",
+            "start": 1,
+            "step": 1
+          }
+        },
+        {
+          "name": "category",
+          "type": "text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "categorical",
+            "values": [
+              "grocery",
+              "fuel",
+              "online",
+              "travel",
+              "dining"
+            ],
+            "weights": [
+              0.3,
+              0.15,
+              0.3,
+              0.1,
+              0.15
+            ]
+          }
+        },
+        {
+          "name": "risk_level",
+          "type": "text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "categorical",
+            "values": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "weights": [
+              0.8,
+              0.17,
+              0.03
+            ]
+          }
+        }
+      ],
+      "correlation": null,
+      "constraints": []
+    },
+    {
+      "name": "transactions",
+      "row_rule": {
+        "kind": "per_parent",
+        "parent_table": "cards",
+        "parent_column": "card_id",
+        "child_column": "card_id",
+        "counts": [
+          {
+            "children": 5,
+            "weight": 0.3
+          },
+          {
+            "children": 10,
+            "weight": 0.4
+          },
+          {
+            "children": 25,
+            "weight": 0.2
+          },
+          {
+            "children": 60,
+            "weight": 0.1
+          }
+        ],
+        "target_rows": 1000000
+      },
+      "columns": [
+        {
+          "name": "transaction_id",
+          "type": "integer",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": true,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "sequence",
+            "start": 1,
+            "step": 1
+          }
+        },
+        {
+          "name": "card_id",
+          "type": "integer",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "foreign_key",
+            "parent_table": "cards",
+            "parent_column": "card_id",
+            "distribution": "uniform",
+            "exponent": null,
+            "hot_keys": null,
+            "hot_share": null,
+            "group_size": null
+          }
+        },
+        {
+          "name": "merchant_id",
+          "type": "integer",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "foreign_key",
+            "parent_table": "merchants",
+            "parent_column": "merchant_id",
+            "distribution": "zipf",
+            "exponent": 0.9,
+            "hot_keys": null,
+            "hot_share": null,
+            "group_size": null
+          }
+        },
+        {
+          "name": "amount",
+          "type": "float",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "distribution",
+            "family": "lognorm",
+            "params": [
+              1.0,
+              0.0,
+              35.0
+            ],
+            "minimum": 0.5,
+            "maximum": 15000.0,
+            "decimals": 2
+          }
+        },
+        {
+          "name": "fee",
+          "type": "float",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "derived",
+            "expression": "round(amount * 0.015, 2)"
+          }
+        },
+        {
+          "name": "channel",
+          "type": "text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "categorical",
+            "values": [
+              "pos",
+              "online",
+              "atm"
+            ],
+            "weights": [
+              0.6,
+              0.35,
+              0.05
+            ]
+          }
+        },
+        {
+          "name": "txn_timestamp",
+          "type": "datetime",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "datetime",
+            "start": "2024-01-01 00:00:00",
+            "end": "2024-12-31 23:59:59",
+            "granularity": "datetime",
+            "weekday_weights": null,
+            "hour_weights": [
+              0.002254791431792559,
+              0.0011273957158962795,
+              0.0011273957158962795,
+              0.0011273957158962795,
+              0.0011273957158962795,
+              0.0033821871476888386,
+              0.009019165727170236,
+              0.016910935738444193,
+              0.033821871476888386,
+              0.05636978579481398,
+              0.06764374295377677,
+              0.07328072153325817,
+              0.08455467869222097,
+              0.08455467869222097,
+              0.07328072153325817,
+              0.06764374295377677,
+              0.06764374295377677,
+              0.07328072153325817,
+              0.07891770011273957,
+              0.07328072153325817,
+              0.05636978579481398,
+              0.03945885005636979,
+              0.02254791431792559,
+              0.011273957158962795
+            ]
+          }
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "categorical",
+            "values": [
+              "approved",
+              "declined",
+              "reversed"
+            ],
+            "weights": [
+              0.95,
+              0.04,
+              0.01
+            ]
+          }
+        },
+        {
+          "name": "is_fraud",
+          "type": "integer",
+          "nullable": false,
+          "null_rate": 0.0,
+          "primary_key": false,
+          "unique": false,
+          "sensitive": false,
+          "generator": {
+            "type": "constant",
+            "value": 0
+          }
+        }
+      ],
+      "correlation": null,
+      "constraints": [
+        {
+          "kind": "range",
+          "column": "amount",
+          "minimum": 0.5,
+          "maximum": 15000.0
+        },
+        {
+          "kind": "order",
+          "lower": "cards.issued_date",
+          "upper": "txn_timestamp"
+        }
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "card_testing_bursts",
+      "category": "target_scenario",
+      "share": 0.01,
+      "unit": "entity",
+      "entity": "cards",
+      "labels": [
+        {
+          "table": "transactions",
+          "column": "is_fraud",
+          "value": 1
+        }
+      ],
+      "overrides": [],
+      "correlations": [],
+      "cardinality": [],
+      "sequences": [
+        {
+          "table": "transactions",
+          "entity_key": "card_id",
+          "time_column": "txn_timestamp",
+          "steps": [
+            {
+              "count": 8,
+              "gap_min_seconds": 20,
+              "gap_max_seconds": 90,
+              "columns": [
+                {
+                  "column": "amount",
+                  "generator": {
+                    "type": "empirical",
+                    "quantiles": [
+                      0.5,
+                      2.0
+                    ],
+                    "decimals": 2
+                  }
+                }
+              ]
+            },
+            {
+              "count": 1,
+              "gap_min_seconds": 300,
+              "gap_max_seconds": 900,
+              "columns": [
+                {
+                  "column": "amount",
+                  "generator": {
+                    "type": "empirical",
+                    "quantiles": [
+                      900.0,
+                      2500.0
+                    ],
+                    "decimals": 2
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "defects": []
+    },
+    {
+      "name": "large_night_purchases",
+      "category": "target_scenario",
+      "share": 0.004,
+      "unit": "entity",
+      "entity": "transactions",
+      "labels": [
+        {
+          "table": "transactions",
+          "column": "is_fraud",
+          "value": 1
+        }
+      ],
+      "overrides": [
+        {
+          "table": "transactions",
+          "column": "amount",
+          "generator": {
+            "type": "empirical",
+            "quantiles": [
+              1200.0,
+              9000.0
+            ],
+            "decimals": 2
+          }
+        },
+        {
+          "table": "transactions",
+          "column": "txn_timestamp",
+          "generator": {
+            "type": "datetime",
+            "start": "2024-01-01 00:00:00",
+            "end": "2024-12-31 23:59:59",
+            "granularity": "datetime",
+            "weekday_weights": null,
+            "hour_weights": [
+              0.16666666666666666,
+              0.16666666666666666,
+              0.16666666666666666,
+              0.16666666666666666,
+              0.16666666666666666,
+              0.16666666666666666,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        }
+      ],
+      "correlations": [],
+      "cardinality": [],
+      "sequences": [],
+      "defects": []
+    },
+    {
+      "name": "large_daytime_legitimate",
+      "category": "near_miss",
+      "share": 0.004,
+      "unit": "entity",
+      "entity": "transactions",
+      "labels": [],
+      "overrides": [
+        {
+          "table": "transactions",
+          "column": "amount",
+          "generator": {
+            "type": "empirical",
+            "quantiles": [
+              1200.0,
+              9000.0
+            ],
+            "decimals": 2
+          }
+        }
+      ],
+      "correlations": [],
+      "cardinality": [],
+      "sequences": [],
+      "defects": []
+    }
+  ],
+  "output": {
+    "compression": "zstd",
+    "chunk_rows": 250000
+  }
+}
