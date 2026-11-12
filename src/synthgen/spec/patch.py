@@ -64,11 +64,16 @@ def apply_patch(spec: GenerationSpec, patch: SpecPatch) -> GenerationSpec:
         raise PatchError(f"patched spec is invalid: {exc}") from exc
 
 
+_PARAMETER = r"generator/(?!type$)[^/]+(/.*)?$"
 ALLOWED_PATHS = (
-    re.compile(r"^/scenarios/\d+/overrides/\d+/generator/(?!type$)[^/]+(/.*)?$"),
-    re.compile(r"^/tables/\d+/columns/\d+/generator/(?!type$)[^/]+(/.*)?$"),
+    re.compile(rf"^/scenarios/\d+/overrides/\d+/{_PARAMETER}"),
+    re.compile(rf"^/tables/\d+/columns/\d+/{_PARAMETER}"),
+    re.compile(r"^/scenarios/\d+/sequences/\d+/steps/\d+/(count|gap_min_seconds|gap_max_seconds)$"),
+    re.compile(rf"^/scenarios/\d+/sequences/\d+/steps/\d+/columns/\d+/{_PARAMETER}"),
 )
-"""Generator parameters of overrides and baseline columns; never a generator's type (SPEC 5)."""
+"""SPEC 5: generator parameters (clip bounds and conditional cases included) of overrides,
+baseline columns and sequence steps, and sequence step counts and gaps; never a generator's
+type, a share, a name or a table's structure."""
 
 
 def disallowed_paths(patch: SpecPatch) -> list[str]:

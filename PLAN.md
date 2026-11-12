@@ -491,6 +491,11 @@ confirmed or corrected it moves to section 3.
   privacy check: a failure names the scenarios of its failing rows only when
   none of them is typical, so routing sends it to repair; otherwise the job
   fails. Scenario-family rows always name their scenario; fidelity rows never.
+- 2026-11-12 (M6): The patch allow-list now covers everything SPEC 5 lists:
+  generator parameters of overrides, baseline columns and sequence step
+  columns (clip bounds and conditional cases are parameters), and sequence
+  step counts and gaps. The repair analyst (prompt v2) also sees the approved
+  scenarios with their signatures.
 
 ## 4. Milestones
 
@@ -779,7 +784,7 @@ confirmed or corrected it moves to section 3.
   - [x] T6.4 Privacy family: `validation/privacy.py` (per Q7). Tests.
   - [x] T6.5 Report and failure tracing: `validation/report.py`,
     `validation_report.json`, overlay tracing for routing (A5). Tests.
-  - [ ] T6.6 Repair loop: repair prompt fed failing report rows; integration
+  - [x] T6.6 Repair loop: repair prompt fed failing report rows; integration
     tests `tests/integration/test_repair.py` (seeded failure repaired; injected
     defects caught; cap → `needs_review`).
 - **Acceptance:** typical output passes fidelity; injected defects are caught;

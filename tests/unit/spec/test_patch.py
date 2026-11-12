@@ -4,7 +4,7 @@ import pytest
 
 from synthgen.domain.errors import PatchError
 from synthgen.domain.patch import SpecPatch
-from synthgen.spec.patch import apply_patch, set_pointer
+from synthgen.spec.patch import apply_patch, disallowed_paths, set_pointer
 
 from ..engine.test_runner import BIG, make_spec
 
@@ -41,3 +41,26 @@ def test_apply_patch_changes_scenario_share() -> None:
 def test_apply_patch_rejects_invalid_result() -> None:
     with pytest.raises(PatchError):
         apply_patch(make_spec(scenarios=[BIG]), patch(("/scenarios/0/share", "7")))
+
+
+@pytest.mark.parametrize(
+    ("path", "allowed"),
+    [
+        ("/scenarios/0/overrides/1/generator/quantiles", True),
+        ("/scenarios/0/overrides/1/generator/quantiles/0", True),
+        ("/scenarios/0/overrides/1/generator/maximum", True),
+        ("/scenarios/0/overrides/1/generator/cases/0/generator/value", True),
+        ("/tables/2/columns/3/generator/weights", True),
+        ("/scenarios/1/sequences/0/steps/2/count", True),
+        ("/scenarios/1/sequences/0/steps/2/gap_max_seconds", True),
+        ("/scenarios/1/sequences/0/steps/2/columns/0/generator/value", True),
+        ("/scenarios/0/overrides/1/generator/type", False),
+        ("/scenarios/0/share", False),
+        ("/scenarios/0/name", False),
+        ("/scenarios/1/sequences/0/time_column", False),
+        ("/scenarios/1/sequences/0/steps/2/columns/0/column", False),
+        ("/tables/0/row_rule/rows", False),
+    ],
+)
+def test_patch_allow_list(path: str, allowed: bool) -> None:
+    assert (disallowed_paths(patch((path, "1"))) == []) is allowed
