@@ -1,7 +1,12 @@
-"""Parquet output and the manifest (SPEC 8.5, 10): one zstd file per chunk, plus manifest.json."""
+"""Parquet output and the manifest (SPEC 8.5, 10): one zstd file per chunk, plus manifest.json.
+
+Parts are written to a temporary name and renamed, so a crash never leaves half a part behind.
+The manifest is rewritten after every chunk; until `complete` it records progress for a restart.
+"""
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -12,20 +17,7 @@ from synthgen.domain.base import StrictModel
 
 DATA_DIR = "data"
 MANIFEST_FILE = "manifest.json"
-
-
-class ManifestFile(StrictModel):
-    """One written Parquet file, relative to the output folder."""
-
-    path: str
-    rows: int
-
-
-class ColumnSchema(StrictModel):
-    """A column name and its Arrow type."""
-
-    name: str
-    type: str
+TEMPORARY_SUFFIX = ".tmp"
 
 
 class ScenarioCount(StrictModel):
@@ -33,6 +25,21 @@ class ScenarioCount(StrictModel):
 
     scenario: str
     rows: int
+
+
+class ManifestFile(StrictModel):
+    """One written Parquet file (a chunk), relative to the output folder."""
+
+    path: str
+    rows: int
+    scenarios: list[ScenarioCount]
+
+
+class ColumnSchema(StrictModel):
+    """A column name and its Arrow type."""
+
+    name: str
+    type: str
 
 
 class TableManifest(StrictModel):
@@ -46,10 +53,16 @@ class TableManifest(StrictModel):
 
 
 class Manifest(StrictModel):
-    """Everything a reader needs to trust and reproduce the output."""
+    """Everything a reader needs to trust and reproduce the output.
+
+    `run_hash` covers the spec, the run options and the generation settings that shape output;
+    a restart reuses finished chunks only when it matches.
+    """
 
     seed: int
     spec_hash: str
+    run_hash: str
+    complete: bool
     tables: list[TableManifest]
 
     def table(self, name: str) -> TableManifest | None:
@@ -64,12 +77,21 @@ def part_path(out_dir: Path, table: str, part: int) -> Path:
 
 def write_part(
     out_dir: Path, table: str, part: int, data: pa.Table, compression: Literal["zstd"]
-) -> ManifestFile:
+) -> Path:
     """Write one chunk with fixed writer options so equal data gives equal bytes."""
     path = part_path(out_dir, table, part)
     path.parent.mkdir(parents=True, exist_ok=True)
-    pq.write_table(data, path, compression=compression)
-    return ManifestFile(path=path.relative_to(out_dir).as_posix(), rows=data.num_rows)
+    temporary = path.with_name(path.name + TEMPORARY_SUFFIX)
+    pq.write_table(data, temporary, compression=compression)
+    os.replace(temporary, path)
+    return path
+
+
+def remove_part(out_dir: Path, table: str, part: int) -> None:
+    """Delete a chunk's file and any half-written temporary file."""
+    path = part_path(out_dir, table, part)
+    path.with_name(path.name + TEMPORARY_SUFFIX).unlink(missing_ok=True)
+    path.unlink(missing_ok=True)
 
 
 def read_table(out_dir: Path, entry: TableManifest, columns: list[str] | None = None) -> pa.Table:
@@ -79,9 +101,12 @@ def read_table(out_dir: Path, entry: TableManifest, columns: list[str] | None = 
 
 
 def write_manifest(out_dir: Path, manifest: Manifest) -> Path:
-    """Write manifest.json next to the data folder."""
+    """Write manifest.json next to the data folder (atomically)."""
     path = out_dir / MANIFEST_FILE
-    path.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + TEMPORARY_SUFFIX)
+    temporary.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
+    os.replace(temporary, path)
     return path
 
 

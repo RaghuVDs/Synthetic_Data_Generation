@@ -127,6 +127,8 @@ def _manifest() -> Manifest:
     return Manifest(
         seed=1,
         spec_hash="h",
+        run_hash="r",
+        complete=True,
         tables=[
             TableManifest(
                 name="customers",

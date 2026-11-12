@@ -398,6 +398,17 @@ confirmed or corrected it moves to section 3.
   end (parent keys, scenarios and attributes are read for its parent row range
   from the parent's parts) and writes `part-<i>`; `engine/schema.py` holds the
   output columns and `engine/reader.py` reads written tables by row range.
+- 2026-11-12 (M5): Workers and recovery. Chunks of one table run in this
+  process (`--workers 1`) or a spawn-based `ProcessPoolExecutor` (spawn keeps
+  workers free of the parent's threads and connections); tables still run in
+  order. A failed chunk is retried with the same stream up to
+  `generation.chunk_retries` attempts; each failure removes the chunk's files,
+  and parts are written to a `.tmp` name and renamed, so no half-written part
+  survives. The manifest is rewritten after every chunk with `complete: false`
+  and per-part scenario counts; a rerun whose `run_hash` (spec, run options and
+  the generation settings except `workers`) matches skips the parts it lists,
+  otherwise the data folder is cleared. `generate_dataset` takes `workers`
+  (from the job request) and an injectable chunk runner for tests.
 
 ## 4. Milestones
 
@@ -661,7 +672,7 @@ confirmed or corrected it moves to section 3.
     attributes from Parquet). Chunk rows also bounded by
     `generation.max_cells_per_chunk` / columns, so 3,000-column tables stay in
     memory. Tests.
-  - [ ] T5.8 Workers and chunk recovery: `engine/runner.py` (process pool,
+  - [x] T5.8 Workers and chunk recovery: `engine/runner.py` (process pool,
     retry 3 with same seed, skip chunks in manifest, remove partial files).
     Tests: `--workers 1` vs `2` byte-identical; resume skips done chunks.
   - [ ] T5.9 Scale test: `tests/fixtures/specs/finance_1m.json`,

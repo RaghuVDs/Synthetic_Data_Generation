@@ -23,7 +23,7 @@ from synthgen.engine.planning import ChunkPlan, own_scenarios, stream
 from synthgen.engine.reader import WrittenTables
 from synthgen.engine.scenarios import assign_scenarios, categories
 from synthgen.engine.schema import CATEGORY_COLUMN, DEFECT_COLUMN, SCENARIO_COLUMN, to_arrow
-from synthgen.engine.writer import ManifestFile, TableManifest, write_part
+from synthgen.engine.writer import ManifestFile, ScenarioCount, TableManifest, write_part
 from synthgen.spec.dependencies import constraint_reads, parent_reads
 from synthgen.spec.evaluator import Column
 from synthgen.spec.models import EXPR_TYPES, TYPICAL, GenerationSpec, TableSpec
@@ -43,16 +43,8 @@ class ChunkJob:
     settings: GenerationSettings
 
 
-@dataclass(frozen=True)
-class ChunkResult:
-    """The written part and how many of its rows carry each scenario."""
-
-    file: ManifestFile
-    scenarios: dict[str, int]
-
-
-def run_chunk(job: ChunkJob) -> ChunkResult:
-    """Generate the chunk from its own stream and write it as part `plan.index`."""
+def run_chunk(job: ChunkJob) -> ManifestFile:
+    """Generate the chunk from its own stream, write it as part `plan.index`, and describe it."""
     spec, plan, settings = job.spec, job.plan, job.settings
     table = spec.tables[plan.table_index]
     reader = WrittenTables(job.out_dir, job.written)
@@ -86,8 +78,13 @@ def run_chunk(job: ChunkJob) -> ChunkResult:
         DEFECT_COLUMN: apply_defects(draw, spec.scenarios, values, assigned),
     }
     data = to_arrow(table, values, labels)
-    file = write_part(job.out_dir, table.name, plan.index, data, spec.output.compression)
-    return ChunkResult(file=file, scenarios=dict(Counter(assigned.tolist())))
+    path = write_part(job.out_dir, table.name, plan.index, data, spec.output.compression)
+    counts = Counter(assigned.tolist())
+    return ManifestFile(
+        path=path.relative_to(job.out_dir).as_posix(),
+        rows=data.num_rows,
+        scenarios=[ScenarioCount(scenario=s, rows=c) for s, c in sorted(counts.items())],
+    )
 
 
 def _parent_names(spec: GenerationSpec, table: TableSpec) -> list[str]:

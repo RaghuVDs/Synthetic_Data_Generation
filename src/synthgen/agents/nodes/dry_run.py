@@ -18,5 +18,7 @@ def options(deps: NodeDeps) -> RunOptions:
 def run(state: JobState, deps: NodeDeps) -> StateUpdate:
     """Write the sample under the job's dry_run folder."""
     out = deps.job_dir(state["job_id"]) / DRY_RUN_DIR
-    generate_dataset(load_spec(state, deps), out, options(deps), deps.settings.generation)
+    spec = load_spec(state, deps)
+    workers = state["request"].workers
+    generate_dataset(spec, out, options(deps), deps.settings.generation, workers=workers)
     return {}
