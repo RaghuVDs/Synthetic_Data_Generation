@@ -13,6 +13,8 @@ from synthgen.validation.report import validate_output
 def run(state: JobState, deps: NodeDeps) -> StateUpdate:
     """Validate the output and keep the report."""
     out = deps.job_dir(state["job_id"])
-    report = validate_output(validation_inputs(state, deps, RunOptions()), out)
+    with deps.open_source(state["request"].source) as source:
+        inputs = validation_inputs(state, deps, RunOptions(), source.connector)
+        report = validate_output(inputs, out)
     deps.artifacts.put(state["job_id"], ArtifactKind.FINAL_REPORT, report)
     return {"final_report": report}

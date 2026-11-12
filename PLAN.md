@@ -470,6 +470,21 @@ confirmed or corrected it moves to section 3.
 - 2026-11-12 (M6): The recorded replay's `volume_skew_transactions_merchant`
   signature (at least 160,000 rows per transaction) cannot be met; the replay
   test removes it at approval and its hand-written overlay is gone.
+- 2026-11-12 (M6): Privacy family (`validation/privacy.py`). Lookups use the
+  connector's parameterised `aggregate` with `IN` batches of
+  `validation.privacy_lookup_batch`; the validation nodes open the source.
+  `exact_match` samples `privacy_sample_size` values per sensitive column. Refines
+  Q7: a column is identifier-like when its cardinality ratio reaches
+  `privacy_identifier_min_ratio`, it is not a date, and its semantic kind is not
+  a small vocabulary (names, city, postcode, company, birth date). At 2% seed
+  scale first names reach ratio 0.6 and matched 607 times by chance. Others
+  report matches as info. `row_hash` hashes non-key, non-driving, non-foreign-key
+  columns against the profiling sample (same seed and size) and is info when the
+  profiled combinations are fewer than the sample. `suppressed_values` flags
+  internal-column values outside the profile's kept list that the source holds
+  in fewer than `internal_min_count` rows. `text_pool_values` (A14) looks every
+  model-written pool value up in every sensitive text column, traced to the
+  scenario. Without an open source privacy reports one info row.
 
 ## 4. Milestones
 
@@ -755,7 +770,7 @@ confirmed or corrected it moves to section 3.
   - [x] T6.3 Scenario family: `validation/signature.py`,
     `validation/scenario.py` (share, presence, signature ≥ 99%, KS ≥ 0.30,
     near-miss = 0, labels vs manifest). Tests.
-  - [ ] T6.4 Privacy family: `validation/privacy.py` (per Q7). Tests.
+  - [x] T6.4 Privacy family: `validation/privacy.py` (per Q7). Tests.
   - [ ] T6.5 Report and failure tracing: `validation/report.py`,
     `validation_report.json`, overlay tracing for routing (A5). Tests.
   - [ ] T6.6 Repair loop: repair prompt fed failing report rows; integration

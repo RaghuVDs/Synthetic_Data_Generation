@@ -10,6 +10,7 @@ from synthgen.validation.fidelity import check_row_counts, column_checks
 from synthgen.validation.fidelity_tables import children_check, spearman_check
 from synthgen.validation.integrity import check_integrity
 from synthgen.validation.output import OutputData, ValidationInputs
+from synthgen.validation.privacy import check_privacy
 from synthgen.validation.scenario import check_scenarios
 
 REPORT_FILE = "validation_report.json"
@@ -32,6 +33,7 @@ def validate_output(inputs: ValidationInputs, out_dir: Path) -> ValidationReport
         results += spearman_check(inputs, data, table, profile)
         results += children_check(inputs, data, table, profile)
     results += check_scenarios(inputs, data)
+    results += check_privacy(inputs, data)
     report = ValidationReport(results=tuple(results))
     (out_dir / REPORT_FILE).write_text(report.model_dump_json(indent=2), encoding="utf-8")
     return report

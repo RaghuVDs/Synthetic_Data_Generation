@@ -32,7 +32,8 @@ class ValidationInputs:
     """Everything the checks compare the output with.
 
     `plan` carries the scenario signatures; `source` answers privacy lookups and may be None
-    when the source is not open (those checks then report `info`).
+    when the source is not open (those checks then report `info`). The last two fields come
+    from the profiling settings.
     """
 
     spec: GenerationSpec
@@ -41,6 +42,10 @@ class ValidationInputs:
     profiles: Mapping[str, TableProfile]
     plan: ScenarioPlan | None
     source: Connector | None
+    profile_seed: int = 0
+    """Seed of the profiling sample, so row hashes compare against the same source rows."""
+    min_value_count: int = 1
+    """`profiling.internal_min_count`: internal values held by fewer rows were folded away."""
 
 
 class OutputData:
