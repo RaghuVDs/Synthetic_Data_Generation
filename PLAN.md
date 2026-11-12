@@ -527,6 +527,26 @@ confirmed or corrected it moves to section 3.
   Eval jobs auto-approve; a clarification gets the request's `answer` or
   `evaluation.default_answer`, and at most `evaluation.max_pauses` pauses are
   answered. Reports are saved as JSON under `output/eval/`.
+- 2026-11-12 (M7, scale runs): Refines Q7's row-hash skip. The combination
+  space is now measured, not estimated: the check is a hard gate only when at
+  least `privacy_row_unique_min` (0.99) of the profiling sample's rows are
+  distinct on the hashed columns; otherwise matches are chance and reported as
+  info. The product of per-column distinct counts overstated dependent columns:
+  `order_items` (quantity, unit price, line total) has 7,935 distinct rows in
+  200,030, and a 100-row baseline matched 72 by chance; `shipments` has 63%
+  distinct rows. Every other seed table is fully distinct and stays gated.
+- 2026-11-12 (M7, scale runs): A label column keeps the profile's null rate on
+  typical rows (it was forced to 0). Overlays write labels after nulls, so
+  labelled rows are never null. Found on orders, where `shipments.is_late` is
+  empty for the 6.6% of shipments in transit and fidelity failed by 0.065.
+- 2026-11-12 (M7): Definition-of-done audit as tests. The recorded live finance
+  job is scanned: no value of a sensitive source column appears as a word in
+  any prompt or response, except words that also occur in a public column (fake
+  merchant names are built from surnames); no email, phone or card number from
+  the source appears in any output cell. An orders job with an empty template
+  folder completes on stub answers; the plan's sensibility rests on the live M3
+  run. Interrupting each of the 15 nodes once and resuming gives the same
+  Parquet bytes as an uninterrupted run (the repair path, so all nodes run).
 
 ## 4. Milestones
 
@@ -838,8 +858,8 @@ confirmed or corrected it moves to section 3.
     loops, dry-run pass rate, tokens, latency). Tests on the stub.
   - [ ] T7.3 Scale runs: golden set on both sources at 100, 100,000 and
     1,000,000 rows; fix findings.
-  - [ ] T7.4 `README.md` (setup, commands, demo; under two pages), `make demo`.
-  - [ ] T7.5 Definition-of-done audit: scan outputs and `llm_calls` for
+  - [x] T7.4 `README.md` (setup, commands, demo; under two pages), `make demo`.
+  - [x] T7.5 Definition-of-done audit: scan outputs and `llm_calls` for
     sensitive source values; `orders.db` plan with no templates installed;
     interrupt-at-every-node resume test `tests/integration/test_resume_any_node.py`.
 - **Acceptance:** `python main.py eval` runs the golden set on both sources at
@@ -923,3 +943,19 @@ confirmed or corrected it moves to section 3.
   drawn dates toward the end of the range. Fixing it needs dates drawn
   relative to the parent (a SPEC change); awaiting a decision.
 
+- 2026-11-12 M7 Evaluation and demo done except the live part of T7.3: `make
+  check` passes (1,010 tests, 97% coverage on domain/spec/engine/validation).
+  Child dates are drawn relative to the parent date (decision A after M6): at
+  full finance seed scale all 234 final checks pass (`cards.issued_date` month
+  mix 0.049, was 0.103). Golden set of 18 requests (9 per source, all five
+  test types) with hand-labelled roles; `eval` runs it, scores the SPEC 11
+  metrics and saves a JSON report (tested on the stub). Scale runs on both
+  sources at 100, 100,000 and 1,000,000 rows on each source's main table:
+  finance (recorded replay) completes at all three with no failed checks,
+  jobs 46-88 s, peak 0.66 GB; orders (profiled baseline) passes 180 checks at
+  1,000,000 order lines, generated in 33 s, peak 0.44 GB. They found two
+  defects, both fixed: the row-hash check misjudged tables whose source rows
+  repeat, and label columns lost their null rate. Open: `python main.py eval`
+  with a real model at all three volumes (A17) has not been run; it needs the
+  user's LLM endpoint. README and `make demo` (stub, 5,000 rows, 0 of 96 checks
+  failed); the definition-of-done audit runs as tests.
