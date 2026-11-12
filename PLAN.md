@@ -876,3 +876,16 @@ confirmed or corrected it moves to section 3.
   and again with 1: identical bytes, 41 s for both runs, about 0.6 GB peak in
   the main process. The recorded Groq replay gained two hand-written overlays
   for scenarios M5 made expressible (marked in its README).
+- 2026-11-12 M6 Full validator and repair done, with one open issue: `make
+  check` passes (961 tests, 97% coverage on domain/spec/engine/validation) and
+  `make test-slow` still passes (41 s). All four families run on dry runs and
+  final output; failures are traced to overlays for repair; the repair loop
+  fixes a seeded signature failure and an overlay that broke a parent-date
+  order, labelled defects pass integrity, and an unfixable scenario stops at
+  the cap. On the 2% seed every stub job completes. Open: at full seed scale
+  (20,000 customers with accounts, cards and transactions) 233 of 234 final
+  checks pass; `cards.issued_date` month mix is 0.1034 against 0.10, because
+  repairing "issued on or after the account opened" truncates independently
+  drawn dates toward the end of the range. Fixing it needs dates drawn
+  relative to the parent (a SPEC change); awaiting a decision.
+
