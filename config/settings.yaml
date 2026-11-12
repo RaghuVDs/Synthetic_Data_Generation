@@ -113,6 +113,7 @@ validation:
   fidelity_sample_size: 200000        # typical rows per table the distribution checks read
   privacy_identifier_min_ratio: 0.5   # PLAN Q7: exact-match check on identifier-like columns
   privacy_lookup_batch: 500           # values per parameterised IN lookup in the source
+  privacy_row_unique_min: 0.99        # row hashes gate only where source rows are this unique
 
 seed:
   random_seed: 20261110               # fixed seed for the fake source databases

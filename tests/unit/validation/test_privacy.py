@@ -247,3 +247,54 @@ def test_leaks_in_scenario_rows_are_traced(
     _overwrite(tmp_path, {"email": "secret3@corp.test"})
     result = _privacy(inputs, tmp_path)[("exact_match", "email")]
     assert (result.status, result.scenario) == (CheckStatus.FAIL, "all")
+
+
+def test_row_hashes_on_repeating_source_rows_are_info(
+    tmp_path: Path, profiling_settings: ProfilingSettings
+) -> None:
+    path = tmp_path / "shop.db"
+    with closing(sqlite3.connect(path)) as conn:
+        conn.execute("CREATE TABLE lines (id INTEGER PRIMARY KEY, qty INTEGER, price REAL)")
+        conn.executemany(
+            "INSERT INTO lines VALUES (?, ?, ?)",
+            [(i, i % 4 + 1, float(i % 7)) for i in range(400)],
+        )
+        conn.commit()
+    with closing(SqliteConnector(path)) as connector:
+        provider = YamlMetadataProvider(SourceDoc(source="shop"), connector)
+        profile = profile_table(
+            "shop",
+            connector,
+            provider.table("lines"),
+            [],
+            parents={},
+            settings=profiling_settings,
+            seed=profiling_settings.sample_seed,
+            now=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        spec = compile_baseline(
+            BaselineInputs(
+                table_set=build_table_set(["lines"], ["lines"], []),
+                tables={"lines": provider.table("lines")},
+                profiles={"lines": profile},
+                profile_versions={"lines": "v"},
+                semantic_map=None,
+                row_targets={"lines": 300},
+                seed=2,
+            ),
+            SETTINGS.generation,
+        )
+        out = tmp_path / "out"
+        generate_dataset(spec, out, RunOptions(), SETTINGS.generation)
+        inputs = ValidationInputs(
+            spec,
+            RunOptions(),
+            SETTINGS.validation,
+            {"lines": profile},
+            plan=None,
+            source=connector,
+            profile_seed=profiling_settings.sample_seed,
+        )
+        result = _privacy(inputs, out)[("row_hash", None)]
+    assert result.status is CheckStatus.INFO
+    assert result.detail == "source rows repeat: 28 distinct of 400"

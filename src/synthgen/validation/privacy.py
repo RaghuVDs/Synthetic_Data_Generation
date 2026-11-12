@@ -4,7 +4,8 @@
   `privacy_identifier_min_ratio`, not dates, not names or places drawn from small vocabularies)
   never occur in the source; other sensitive columns report their matches as info.
 - Row hashes: synthetic rows (non-key, non-label columns) never equal a row of the profiling
-  sample; tables with fewer value combinations than the sample are skipped as info.
+  sample. Where the sample's own rows repeat (fewer than `privacy_row_unique_min` of them are
+  distinct), a match is chance, not a copy, and is reported as info.
 - Suppressed values: an internal column never outputs a source value held by fewer than
   `internal_min_count` rows (a value the profile folded away).
 - Text pools: model-written text never equals a source value of a sensitive text column.
@@ -13,7 +14,6 @@
 from __future__ import annotations
 
 import hashlib
-import math
 from collections.abc import Iterable
 
 import numpy as np
@@ -211,24 +211,17 @@ def _row_hashes(
     where = (table.name, None)
     if not names:
         return _result(where, "row_hash", None, hard=False, detail="no non-key columns")
-    space = math.prod(_distinct(profile, n) for n in names)
-    if space < profile.sample_rows:
-        return _result(
-            where, "row_hash", None, hard=False, detail=f"only {space} value combinations"
-        )
     sampled = source.sample(table.name, names, profile.sample_rows, inputs.profile_seed)
     known = _digests(zip(*(sampled.column(n).to_pylist() for n in names), strict=True))
+    if len(known) < inputs.settings.privacy_row_unique_min * sampled.num_rows:
+        detail = f"source rows repeat: {len(known)} distinct of {sampled.num_rows}"
+        return _result(where, "row_hash", None, hard=False, detail=detail)
     rows = _sample(data.rows(table.name), inputs.settings.privacy_sample_size)
     columns = [data.column(table.name, n)[rows] for n in names]
     synthetic = [_digests([row]) for row in zip(*(c.tolist() for c in columns), strict=True)]
     hit = np.array([bool(digest & known) for digest in synthetic], dtype=bool)
     scenario = traced(hit, data.label(table.name, SCENARIO_COLUMN)[rows])
     return _result(where, "row_hash", float(hit.sum()), hard=True, scenario=scenario)
-
-
-def _distinct(profile: TableProfile, name: str) -> int:
-    stats = profile.column(name)
-    return max(1, stats.distinct_count.value) if stats else 1
 
 
 def _text_pools(inputs: ValidationInputs, source: Connector) -> list[CheckResult]:

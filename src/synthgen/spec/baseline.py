@@ -160,6 +160,11 @@ def _row_rule(name: str, inputs: BaselineInputs, settings: GenerationSettings) -
 def _column(
     meta: ColumnMeta, column: ColumnProfile, key: Relationship | None, *, is_label: bool
 ) -> ColumnSpec:
+    """One baseline column; a label keeps the source's null rate on typical rows.
+
+    A late flag, for example, is empty while in transit. Scenario labels are written after
+    nulls, so labelled rows are never null.
+    """
     sensitive = column.sensitivity is Sensitivity.SENSITIVE
     column_type = _TYPES[column.inferred_type]
     if sensitive and not (
@@ -170,7 +175,7 @@ def _column(
         name=meta.name,
         type=column_type,
         nullable=meta.nullable,
-        null_rate=0.0 if meta.primary_key or is_label else column.null_rate.value,
+        null_rate=0.0 if meta.primary_key else column.null_rate.value,
         primary_key=meta.primary_key,
         unique=meta.unique and not meta.primary_key,
         sensitive=sensitive,

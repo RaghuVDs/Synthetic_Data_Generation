@@ -164,6 +164,7 @@ class ValidationSettings(_Group):
     fidelity_sample_size: int = Field(ge=1)
     privacy_identifier_min_ratio: float = Ratio
     privacy_lookup_batch: int = Field(ge=1)
+    privacy_row_unique_min: float = Ratio
 
 
 class SeedSettings(_Group):
