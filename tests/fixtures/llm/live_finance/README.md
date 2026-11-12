@@ -15,5 +15,6 @@ M5 added the `boundary` generator and weighted foreign keys, which makes them ex
 overlays were written by hand on 2026-11-11 from the recorded plan's levers so the replay still
 passes every gate. Everything else is unchanged from the recording.
 
-Fields added to `ScenarioSpec` after the recording (M5: `correlations`) are filled with their
-empty value in the recorded overlays; no recorded value was changed.
+Fields added to `ScenarioSpec` after the recording (M5: `correlations`, `cardinality`,
+`sequences`) are filled with their empty value in the recorded overlays; no recorded value was
+changed.

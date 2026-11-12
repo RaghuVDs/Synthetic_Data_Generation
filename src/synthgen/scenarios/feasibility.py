@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 from synthgen.domain.feasibility import FeasibilityResult, FeasibilityStatus
 from synthgen.domain.plan import Lever, PlannedScenario, Primitive, ScenarioPlan
 from synthgen.domain.semantic import ColumnRole, SemanticMap
-from synthgen.scenarios.primitives import RULES, available_constructs
+from synthgen.scenarios.primitives import RULES, Construct, available_constructs
 
 Columns = Mapping[str, Sequence[str]]
 
@@ -70,7 +70,7 @@ def _scenario(
         covered=covered,
         not_covered=not_covered,
         reason="; ".join(reasons) or None,
-        alternative=_alternative(scenario, status),
+        alternative=_alternative(scenario, status, roles),
     )
 
 
@@ -86,14 +86,26 @@ def _status(covered: list[str], problems: Sequence[str]) -> FeasibilityStatus:
     return FeasibilityStatus.PARTIAL if covered else FeasibilityStatus.NOT_EXPRESSIBLE
 
 
-def _alternative(scenario: PlannedScenario, status: FeasibilityStatus) -> str | None:
+def _alternative(
+    scenario: PlannedScenario,
+    status: FeasibilityStatus,
+    roles: Mapping[tuple[str, str], ColumnRole],
+) -> str | None:
+    """The nearest primitive that would work: one the engine has, that suits the lever's column."""
     if status is FeasibilityStatus.EXPRESSIBLE:
         return None
     available = available_constructs()
     for primitive in scenario.primitives:
+        levered = [lv for lv in scenario.levers if lv.primitive == primitive]
+        role = roles.get((levered[0].table, levered[0].column)) if levered else None
         step: Primitive | None = primitive
-        while step is not None and RULES[step].construct not in available:
+        while step is not None and not _works(step, role, available):
             step = RULES[step].alternative
         if step is not None and step != primitive:
             return f"use {step} instead of {primitive}"
     return None
+
+
+def _works(primitive: Primitive, role: ColumnRole | None, available: frozenset[Construct]) -> bool:
+    rule = RULES[primitive]
+    return rule.construct in available and (role is None or role in rule.roles)

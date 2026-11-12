@@ -140,6 +140,8 @@ def _with_overlay(baseline: GenerationSpec, **changes: Any) -> GenerationSpec:
         "entity": "customers",
         "labels": [{"table": "orders", "column": "paid", "value": 1}],
         "correlations": [],
+        "cardinality": [],
+        "sequences": [],
         "overrides": [
             {
                 "table": "orders",

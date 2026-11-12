@@ -80,13 +80,13 @@ def _plan_with_burst() -> dict[str, Any]:
     burst.update(
         name="opening_burst",
         share=0.02,
-        primitives=["sequence"],
+        primitives=["timing_shift"],
         levers=[
             {
                 "table": "accounts",
-                "column": "opened_date",
-                "primitive": "sequence",
-                "change": "many accounts in a day",
+                "column": "balance",
+                "primitive": "timing_shift",
+                "change": "balances moved to the weekend",
             }
         ],
         signature=[],
@@ -105,7 +105,7 @@ def test_not_expressible_scenarios_are_shown_and_skipped(
     assert feasibility["high_balance"].status is FeasibilityStatus.EXPRESSIBLE
     burst = feasibility["opening_burst"]
     assert burst.status is FeasibilityStatus.NOT_EXPRESSIBLE
-    assert burst.alternative == "use timing_shift instead of sequence"
+    assert burst.alternative == "use value_shift instead of timing_shift"
     done = app.decide_plan(
         view.job.job_id, Approval(decision=ApprovalDecision.APPROVED, decided_at=datetime.now(UTC))
     )

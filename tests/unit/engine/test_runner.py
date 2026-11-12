@@ -126,6 +126,8 @@ BIG = {
     "entity": "customers",
     "labels": [{"table": "orders", "column": "flag", "value": 1}],
     "correlations": [],
+    "cardinality": [],
+    "sequences": [],
     "overrides": [
         {
             "table": "orders",

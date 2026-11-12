@@ -57,6 +57,11 @@ class GeneratorChecker:
         self._spec = spec
         self._settings = settings
 
+    @property
+    def settings(self) -> GenerationSettings:
+        """The generation limits the checks enforce."""
+        return self._settings
+
     def problem(
         self, table: TableSpec, column: ColumnSpec, gen: Generator, earlier: Sequence[str]
     ) -> str | None:

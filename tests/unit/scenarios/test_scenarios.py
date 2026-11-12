@@ -16,6 +16,7 @@ from synthgen.domain.semantic import SemanticMap
 from synthgen.metadata.provider import SourceDoc, YamlMetadataProvider
 from synthgen.profiling.models import TableProfile
 from synthgen.profiling.profiler import profile_table
+from synthgen.scenarios import feasibility
 from synthgen.scenarios.feasibility import check_feasibility
 from synthgen.scenarios.primitives import RULES, Construct, available_constructs
 from synthgen.scenarios.profile_derived import profile_candidates
@@ -92,10 +93,14 @@ def test_available_constructs_follow_the_spec_models() -> None:
         Construct.FK_WEIGHTS,
         Construct.SHARED_GROUP,
         Construct.CORRELATION,
+        Construct.SEQUENCE,
+        Construct.CARDINALITY,
     }
 
 
-def test_feasibility_statuses() -> None:
+def test_feasibility_statuses(monkeypatch: pytest.MonkeyPatch) -> None:
+    without_sequences = available_constructs() - {Construct.SEQUENCE}
+    monkeypatch.setattr(feasibility, "available_constructs", lambda: without_sequences)
     plan = ScenarioPlan.model_validate(
         {
             "scenarios": [
@@ -126,6 +131,7 @@ def test_feasibility_statuses() -> None:
     assert burst.alternative == "use timing_shift instead of sequence"
     assert results["ghost"].reason == "orders.nope does not exist"
     assert "does not apply" in (results["wrong_role"].reason or "")
+    assert results["wrong_role"].alternative == "use value_shift instead of timing_shift"
     labelled = results["labelled"]
     assert labelled.status is FeasibilityStatus.EXPRESSIBLE
     assert labelled.covered == [

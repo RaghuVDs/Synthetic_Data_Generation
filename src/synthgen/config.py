@@ -120,6 +120,7 @@ class GenerationSettings(_Group):
     birth_dates: tuple[date, date]
     max_copula_columns: int = Field(ge=2)
     copula_min_rho: float = Field(ge=0.0, le=1.0)
+    max_sequence_events: int = Field(ge=1)
 
 
 class LoopCaps(_Group):

@@ -7,7 +7,8 @@ from synthgen.domain.errors import EngineError
 from synthgen.engine.hashing import entity_hash
 from synthgen.engine.keys import children_per_parent, expected_children
 from synthgen.engine.scenarios import assign_scenarios, categories, scenario_counts
-from synthgen.spec.models import TYPICAL, ChildCount, PerParentRows, ScenarioSpec
+from synthgen.spec.models import TYPICAL, PerParentRows, ScenarioSpec
+from synthgen.spec.shapes import ChildCount
 
 
 def _rule(target: int | None = None) -> PerParentRows:
@@ -76,6 +77,8 @@ def _scenario(name: str, share: float) -> ScenarioSpec:
             "entity": "t",
             "labels": [],
             "correlations": [],
+            "cardinality": [],
+            "sequences": [],
             "overrides": [],
         }
     )

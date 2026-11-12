@@ -343,6 +343,25 @@ confirmed or corrected it moves to section 3.
   is not positive semi-definite with the nearest valid one (Higham's
   alternating projections, `spec/correlation.py`); the engine repairs the
   normal-scale matrix again after `2 sin(pi rho / 6)`.
+- 2026-11-11 (M5): Sequences. `ScenarioSpec` gains `cardinality` (children per
+  parent row of a child table for the scenario's parents; `children: 0` is
+  absence) and `sequences` (`SequenceSpec` in `spec/shapes.py`: child table,
+  its driving key as `entity_key`, a date or datetime `time_column`, steps of
+  `count` events with a gap range in seconds and optional step columns for a
+  state path). The shaped table must hang below the scenario entity through
+  driving keys. A sequence fixes its parents' children to the steps' event
+  count unless `cardinality` says otherwise; the other parents absorb the
+  difference so the table total still matches its target. Events are ordered
+  by entity and drawn time; the first keeps its time and each later one
+  follows by a gap from its step. `generation.max_sequence_events` caps events
+  per entity (1,000).
+- 2026-11-11 (M5): Once M5 offers every construct, "not expressible" comes only
+  from missing columns or role mismatches. The nearest alternative (SPEC 7.4)
+  now also covers role mismatches: the primitive's alternatives are walked to
+  the first one the engine offers that suits the lever column's role
+  (timing_shift on a measure suggests value_shift). Tests that used
+  `sequence` as the unavailable example use a role mismatch, or patch the
+  construct list.
 
 ## 4. Milestones
 
@@ -596,7 +615,7 @@ confirmed or corrected it moves to section 3.
   - [x] T5.3 Gaussian copula: `engine/copula.py`; nearest-PSD repair in
     `spec/validator.py`. Tests: Spearman matrix recovered. Wide tables: the
     copula covers at most `generation.max_copula_columns` correlated columns.
-  - [ ] T5.4 Sequences and state paths: `engine/sequences.py`. Tests.
+  - [x] T5.4 Sequences and state paths: `engine/sequences.py`. Tests.
   - [ ] T5.5 Constraints, nulls, defects: `engine/constraints.py`,
     `engine/defects.py` (`_defect`). Tests.
   - [ ] T5.6 Primitive coverage: `tests/unit/engine/test_primitives.py` (one

@@ -12,6 +12,7 @@ from synthgen.domain.base import StrictModel
 from synthgen.domain.plan import ScenarioCategory, ScenarioUnit
 from synthgen.spec.expressions import ExprType
 from synthgen.spec.generators import Generator, Scalar
+from synthgen.spec.shapes import CardinalityOverride, ChildCount, SequenceSpec
 
 SPEC_FORMAT_VERSION = 2
 MATRIX_TOLERANCE = 1e-6
@@ -60,13 +61,6 @@ class FixedRows(StrictModel):
 
     kind: Literal["fixed"]
     rows: int = Field(ge=1)
-
-
-class ChildCount(StrictModel):
-    """Share of parents that have this many children."""
-
-    children: int = Field(ge=0)
-    weight: float = Field(ge=0.0)
 
 
 class PerParentRows(StrictModel):
@@ -167,6 +161,8 @@ class ScenarioSpec(StrictModel):
     labels: list[LabelSetting]
     overrides: list[ColumnOverride]
     correlations: list[CorrelationOverride]
+    cardinality: list[CardinalityOverride]
+    sequences: list[SequenceSpec]
 
 
 class OverlaySet(StrictModel):

@@ -42,7 +42,9 @@
               }
             }
           ],
-          "correlations": []
+          "correlations": [],
+          "cardinality": [],
+          "sequences": []
         },
         {
           "name": "large_nighttime_purchases",
@@ -83,7 +85,9 @@
               }
             }
           ],
-          "correlations": []
+          "correlations": [],
+          "cardinality": [],
+          "sequences": []
         },
         {
           "name": "legitimate_large_daytime",
@@ -124,7 +128,9 @@
               }
             }
           ],
-          "correlations": []
+          "correlations": [],
+          "cardinality": [],
+          "sequences": []
         },
         {
           "name": "boundary_transactions_amount",
@@ -146,7 +152,9 @@
               }
             }
           ],
-          "correlations": []
+          "correlations": [],
+          "cardinality": [],
+          "sequences": []
         },
         {
           "name": "volume_skew_transactions_merchant",
@@ -171,7 +179,9 @@
               }
             }
           ],
-          "correlations": []
+          "correlations": [],
+          "cardinality": [],
+          "sequences": []
         }
       ]
     }

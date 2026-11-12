@@ -80,6 +80,7 @@ generation:
   birth_dates: ["1940-01-01", "2008-12-31"]   # range of the date_of_birth semantic kind
   max_copula_columns: 50              # most columns one Gaussian copula covers (wide tables)
   copula_min_rho: 0.1                 # |Spearman| a column needs with another to join the copula
+  max_sequence_events: 1000           # events per entity one scenario sequence may lay out
 
 agent:
   caps:

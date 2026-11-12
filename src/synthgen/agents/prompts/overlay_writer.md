@@ -27,6 +27,17 @@ rows, and which label values those rows carry.
   on the scenario's rows: {"table": str, "columns": [str, ...], "spearman": [[...], ...]}
   (square, symmetric, 1 on the diagonal). The columns need empirical or distribution generators.
   Use [] when the scenario changes no correlation.
+- cardinality (relationship_shape, gap_or_absence) sets how many rows a child table gets per
+  parent row of the scenario: {"table": child table, "counts": [{"children": int, "weight":
+  number}, ...]}. [{"children": 0, "weight": 1}] means no children at all. The child table must
+  hang below the scenario entity through its parent keys. Use [] when unchanged.
+- sequences (sequence, state_path, gap_or_absence) lay out each entity's events in a child table
+  as ordered steps: {"table": child table, "entity_key": its key to the parent, "time_column": a
+  date or datetime column, "steps": [{"count": events in the step, "gap_min_seconds": number,
+  "gap_max_seconds": number, "columns": [{"column": str, "generator": generator}]}]}. Gaps are
+  between consecutive events and must be above 0; a step's columns (e.g. a status) are set on
+  its events, so steps can walk a state path. The parent gets exactly the steps' events unless
+  cardinality says otherwise. Use [] when the scenario has no sequence.
 - If SPEC_ERRORS is not "none", fix every listed error.
 - Leave out every lever listed in NOT_EXPRESSIBLE_PARTS; do not approximate it with another
   generator. Express the rest of the scenario.
@@ -86,4 +97,4 @@ Output:
   "labels": [{"table": "subscriptions", "column": "churned", "value": 1}],
   "overrides": [{"table": "viewing_sessions", "column": "minutes",
                  "generator": {"type": "empirical", "quantiles": [0.5, 2.0], "decimals": 1}}],
-  "correlations": []}]}
+  "correlations": [], "cardinality": [], "sequences": []}]}

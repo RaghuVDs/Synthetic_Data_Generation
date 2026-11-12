@@ -24,7 +24,9 @@
               }
             }
           ],
-          "correlations": []
+          "correlations": [],
+          "cardinality": [],
+          "sequences": []
         }
       ]
     }

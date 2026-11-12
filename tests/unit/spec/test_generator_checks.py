@@ -22,6 +22,8 @@ def _override(table: str, column: str, generator: dict[str, Any]) -> GenerationS
         "entity": "customers",
         "labels": [],
         "correlations": [],
+        "cardinality": [],
+        "sequences": [],
         "overrides": [{"table": table, "column": column, "generator": generator}],
     }
     return merge_overlays(make_spec(), [ScenarioSpec.model_validate(overlay)])

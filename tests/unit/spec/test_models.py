@@ -8,11 +8,11 @@ from pydantic import TypeAdapter, ValidationError
 
 from synthgen.spec.generators import Generator
 from synthgen.spec.models import (
-    ChildCount,
     GenerationSpec,
     OverlaySet,
     PerParentRows,
 )
+from synthgen.spec.shapes import ChildCount
 
 
 def _spec() -> dict[str, Any]:

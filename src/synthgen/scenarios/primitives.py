@@ -103,7 +103,7 @@ def available_constructs() -> frozenset[Construct]:
         Construct.TEXT_POOL: "text_pool" in types,
         Construct.FK_WEIGHTS: bool({"zipf", "weighted"} & _fk_distributions()),
         Construct.SHARED_GROUP: "shared_group" in _fk_distributions(),
-        Construct.SEQUENCE: "sequence" in ScenarioSpec.model_fields,
+        Construct.SEQUENCE: "sequences" in ScenarioSpec.model_fields,
         Construct.DEFECTS: "defects" in ScenarioSpec.model_fields,
         Construct.CARDINALITY: "cardinality" in ScenarioSpec.model_fields,
         Construct.CORRELATION: "correlations" in ScenarioSpec.model_fields,

@@ -18,6 +18,7 @@ from synthgen.engine.copula import correlated_uniforms
 from synthgen.engine.generators import GenContext, Values, generate
 from synthgen.engine.generators.basic import from_uniform
 from synthgen.engine.scenarios import ObjectArray
+from synthgen.engine.sequences import SequenceDraw, apply_sequence
 from synthgen.spec.dependencies import downstream, generation_order, own_reads, reads
 from synthgen.spec.distributions import DistributionGen
 from synthgen.spec.evaluator import Column
@@ -104,35 +105,67 @@ def apply_overlays(
     values: dict[str, Values],
     assigned: ObjectArray,
 ) -> None:
-    """Scenario rows get the overlay's generators and label values; other rows keep the baseline."""
-    table, rng, ctx = draw.table, draw.rng, draw.ctx
-    types = {c.name: EXPR_TYPES[c.type] for c in table.columns}
+    """Scenario rows get the overlay's generators, correlations, sequences and labels.
+
+    Order: overridden columns, then correlated columns, then sequences; afterwards every baseline
+    column computed from a changed column is recomputed on the scenario's rows.
+    """
     for scenario in scenarios:
         rows = np.flatnonzero(assigned == scenario.name)
-        if rows.size == 0:
-            continue
-        overrides = {o.column: o.generator for o in scenario.overrides if o.table == table.name}
-        correlated = _scenario_copula(scenario, table, overrides, rows.size, rng)
-        replaced = [
-            c.model_copy(update={"generator": overrides[c.name]})
-            for c in table.columns
-            if c.name in overrides and c.name not in correlated
-        ]
-        given = {c.name for c in table.columns} - set(overrides)
-        for name, drawn in correlated.items():
-            values[name] = _set_rows(values[name], rows, drawn)
-        changed = set(overrides) | set(correlated)
-        for column in [
-            *generation_order(replaced, given | set(correlated), overlay=True),
-            *downstream(table.columns, changed),
-        ]:
-            frame = {**ctx.frame, **{k: (types[k], values[k]) for k in own_reads(column.generator)}}
-            drawn = generate(
-                column.generator, rows.size, rng, replace(ctx, frame=frame).subset(rows)
-            )
-            values[column.name] = _set_rows(values[column.name], rows, drawn)
-        for label in (lb for lb in scenario.labels if lb.table == table.name):
-            values[label.column] = _set_rows(values[label.column], rows, label.value)
+        if rows.size:
+            _apply_scenario(draw, scenario, values, rows)
+
+
+def _apply_scenario(
+    draw: TableDraw, scenario: ScenarioSpec, values: dict[str, Values], rows: NDArray[np.int64]
+) -> None:
+    table, rng = draw.table, draw.rng
+    overrides = {o.column: o.generator for o in scenario.overrides if o.table == table.name}
+    correlated = _scenario_copula(scenario, table, overrides, rows.size, rng)
+    replaced = [
+        c.model_copy(update={"generator": overrides[c.name]})
+        for c in table.columns
+        if c.name in overrides and c.name not in correlated
+    ]
+    given = {c.name for c in table.columns} - set(overrides)
+    for column in generation_order(replaced, given | set(correlated), overlay=True):
+        _redraw(draw, column.generator, column.name, values, rows)
+    for name, drawn in correlated.items():
+        values[name] = _set_rows(values[name], rows, drawn)
+    changed = set(overrides) | set(correlated)
+    for sequence in (q for q in scenario.sequences if q.table == table.name):
+        how = SequenceDraw(
+            time_type=EXPR_TYPES[_column(table, sequence.time_column).type],
+            rng=rng,
+            draw=lambda gen, members: _draw_rows(draw, gen, values, members),
+        )
+        changed |= apply_sequence(sequence, values, rows, how)
+    for column in downstream(table.columns, changed):
+        _redraw(draw, column.generator, column.name, values, rows)
+    for label in (lb for lb in scenario.labels if lb.table == table.name):
+        values[label.column] = _set_rows(values[label.column], rows, label.value)
+
+
+def _column(table: TableSpec, name: str) -> ColumnSpec:
+    found = table.column(name)
+    if found is None:
+        raise EngineError(f"{table.name} has no column {name}")
+    return found
+
+
+def _draw_rows(
+    draw: TableDraw, gen: Generator, values: Mapping[str, Values], rows: NDArray[np.int64]
+) -> Values:
+    """A generator's values for some rows, reading the current values of the columns it needs."""
+    types = {c.name: EXPR_TYPES[c.type] for c in draw.table.columns}
+    frame = {**draw.ctx.frame, **{k: (types[k], values[k]) for k in own_reads(gen)}}
+    return generate(gen, rows.size, draw.rng, replace(draw.ctx, frame=frame).subset(rows))
+
+
+def _redraw(
+    draw: TableDraw, gen: Generator, name: str, values: dict[str, Values], rows: NDArray[np.int64]
+) -> None:
+    values[name] = _set_rows(values[name], rows, _draw_rows(draw, gen, values, rows))
 
 
 def _set_rows(values: Values, rows: NDArray[np.int64], new: object) -> Values:

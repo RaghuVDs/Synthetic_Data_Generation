@@ -22,6 +22,7 @@ from synthgen.spec.models import (
     SpecError,
     TableSpec,
 )
+from synthgen.spec.shape_checks import shape_problems
 
 SHARE_TOLERANCE = 1e-9
 Origin = Literal["baseline", "overlay"]
@@ -107,6 +108,10 @@ def _scenario_errors(spec: GenerationSpec, checker: GeneratorChecker) -> list[Sp
         problems += [
             (f"{path}/correlations/{j}", _correlation_override_problem(spec, checker, scenario, j))
             for j in range(len(scenario.correlations))
+        ]
+        problems += [
+            (f"{path}/{at}", message)
+            for at, message in shape_problems(spec, scenario, checker, checker.settings)
         ]
         errors += [_error("overlay", at, p, scenario.name) for at, p in problems if p]
     return errors

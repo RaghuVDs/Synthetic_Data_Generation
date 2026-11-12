@@ -69,9 +69,9 @@ def test_plan_table_shows_feasibility(job_env: EnvFactory, tmp_path: Path) -> No
     burst = dict(plan["scenarios"][0])
     burst.update(
         name="opening_burst",
-        primitives=["sequence"],
+        primitives=["timing_shift"],
         levers=[
-            {"table": "accounts", "column": "opened_date", "primitive": "sequence", "change": "x"}
+            {"table": "accounts", "column": "balance", "primitive": "timing_shift", "change": "x"}
         ],
         signature=[],
         share=0.01,
@@ -88,4 +88,4 @@ def test_plan_table_shows_feasibility(job_env: EnvFactory, tmp_path: Path) -> No
     text = console.export_text()
     assert "expressible" in text and "not_expressible" in text
     assert "opening_burst is not_expressible" in text
-    assert "try: use timing_shift instead of sequence" in text
+    assert "try: use value_shift instead of timing_shift" in text

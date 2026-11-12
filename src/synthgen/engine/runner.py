@@ -21,7 +21,7 @@ from synthgen.config import GenerationSettings
 from synthgen.domain.errors import EngineError
 from synthgen.engine.columns import TableDraw, apply_overlays, draw_columns
 from synthgen.engine.generators import GenContext, SemanticPools, Values
-from synthgen.engine.keys import children_per_parent
+from synthgen.engine.keys import plan_children
 from synthgen.engine.scenarios import assign_scenarios, categories
 from synthgen.engine.writer import (
     DATA_DIR,
@@ -119,7 +119,7 @@ def _generate_table(
     reader: _Reader,
     options: RunOptions,
 ) -> pa.Table:
-    n, parent_rows = _row_plan(table, draw.rng, reader, options)
+    n, parent_rows = _row_plan(spec, table, draw, reader, options)
     inherited = np.full(n, TYPICAL, dtype=object)
     fixed: dict[str, Values] = {}
     rule = table.row_rule
@@ -164,15 +164,23 @@ def _parent_frame(
 
 
 def _row_plan(
-    table: TableSpec, rng: np.random.Generator, reader: _Reader, options: RunOptions
+    spec: GenerationSpec, table: TableSpec, draw: TableDraw, reader: _Reader, options: RunOptions
 ) -> tuple[int, Any]:
     """Row count, and for child tables the parent row index of each child row."""
     rule = table.row_rule
     if rule.kind == "fixed":
         cap = options.max_root_rows
         return (min(rule.rows, cap) if cap else rule.rows), None
-    parents = reader.column(rule.parent_table, rule.parent_column).size
-    counts = children_per_parent(rule, parents, rng, use_target=not options.is_sample)
+    parent_scenarios = reader.column(rule.parent_table, SCENARIO_COLUMN).astype(object)
+    counts = plan_children(
+        rule,
+        table.name,
+        parent_scenarios,
+        spec.scenarios,
+        draw.rng,
+        use_target=not options.is_sample,
+    )
+    parents = parent_scenarios.size
     parent_rows = np.repeat(np.arange(parents), counts)
     return int(parent_rows.size), parent_rows
 

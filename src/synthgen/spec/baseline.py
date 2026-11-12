@@ -29,7 +29,6 @@ from synthgen.spec.generators import (
 )
 from synthgen.spec.models import (
     SPEC_FORMAT_VERSION,
-    ChildCount,
     ColumnSpec,
     ColumnType,
     CorrelationSpec,
@@ -42,6 +41,7 @@ from synthgen.spec.models import (
     TableSpec,
 )
 from synthgen.spec.semantic_kinds import K, semantic_kind
+from synthgen.spec.shapes import ChildCount
 
 PATTERN_OTHER_SHARE = 0.5
 """Text columns whose stored frequencies miss more than this share are generated from masks."""
