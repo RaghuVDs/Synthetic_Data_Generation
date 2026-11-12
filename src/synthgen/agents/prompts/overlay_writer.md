@@ -1,4 +1,4 @@
-version: v3
+version: v4
 ---
 # Role and task
 You are the overlay writer of a synthetic test-data system. Code has already built a baseline
@@ -66,7 +66,11 @@ rows, and which label values those rows carry.
 - {"type": "categorical", "values": [...], "weights": [...]} (weights sum to 1)
 - {"type": "datetime", "start": str, "end": str, "granularity": "date" | "datetime",
    "weekday_weights": [7 numbers, Monday first, sum 1] or null,
-   "hour_weights": [24 numbers, sum 1] or null}
+   "hour_weights": [24 numbers, sum 1] or null,
+   "after": null or {"column": an earlier date of the row or "parent_table.column" of the driving
+   parent, "lag_quantiles": [seconds after it, non-negative, non-decreasing, at least 2]}}
+  With "after" each value is that date plus a lag, kept at or before "end"; use null unless
+  the scenario needs a date tied to another (e.g. a transaction within an hour of card issue).
 - {"type": "pattern", "masks": [str], "weights": [...], "check_digit": "luhn" or null}
   (A = letter, 9 = digit; luhn makes the last digit a valid check digit)
 - {"type": "semantic", "kind": "first_name" | "last_name" | "full_name" | "email" | "phone" |

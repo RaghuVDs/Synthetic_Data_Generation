@@ -105,6 +105,8 @@ def test_child_dates_follow_parent_dates(shop: Path, profiling_settings: Profili
     assert (order.parent_column, order.child_column) == ("joined", "ordered_at")
     assert order.after_share == 1.0
     assert 0 <= order.lag_seconds.p50 <= 90 * 86_400
+    assert len(order.lag_quantiles) == profiling_settings.lag_quantile_points
+    assert order.lag_quantiles[0] >= 0 and order.lag_quantiles[-1] == order.lag_seconds.max
 
 
 def test_parent_categories(shop: Path, profiling_settings: ProfilingSettings) -> None:

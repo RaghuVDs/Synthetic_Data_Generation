@@ -30,6 +30,7 @@ WINDOW = {
     "end": "2024-12-31 23:59:59",
     "granularity": "datetime",
     "weekday_weights": None,
+    "after": None,
 }
 
 

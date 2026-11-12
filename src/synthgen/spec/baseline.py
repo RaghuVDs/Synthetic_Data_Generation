@@ -12,7 +12,7 @@ from synthgen.domain.errors import SpecCompilationError
 from synthgen.domain.metadata import ColumnMeta, Relationship, Sensitivity, TableMeta, TableSet
 from synthgen.domain.semantic import SemanticMap
 from synthgen.profiling.models import ColumnProfile, InferredType, TableProfile
-from synthgen.spec.baseline_rules import derived_columns, order_constraints
+from synthgen.spec.baseline_rules import derived_columns, order_constraints, parent_lagged
 from synthgen.spec.checks import COPULA_GENERATORS
 from synthgen.spec.correlation import as_matrix, nearest_correlation
 from synthgen.spec.generators import (
@@ -98,6 +98,7 @@ def _table(name: str, inputs: BaselineInputs, settings: GenerationSettings) -> T
         columns.append(_column(meta, column, keys.get(meta.name), is_label=meta.name == label))
     columns = derived_columns(profile, columns)
     row_rule = _row_rule(name, inputs, settings)
+    columns = parent_lagged(profile, columns, row_rule, settings.order_min_share)
     return TableSpec(
         name=name,
         row_rule=row_rule,
@@ -258,6 +259,7 @@ def _datetime(column: ColumnProfile) -> Generator:
         hour_weights=_normalised([float(c) for c in temporal.hour_counts.value])
         if is_datetime
         else None,
+        after=None,
     )
 
 

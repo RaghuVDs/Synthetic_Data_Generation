@@ -85,6 +85,7 @@ def test_an_overlay_that_breaks_integrity_is_caught_and_repaired(
         "granularity": "date",
         "weekday_weights": None,
         "hour_weights": None,
+        "after": None,
     }
     patch = _patch("/scenarios/0/overrides/1/generator/start", "2025-07-01")
     patch["patches"].append(

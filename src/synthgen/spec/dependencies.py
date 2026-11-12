@@ -12,7 +12,7 @@ from synthgen.spec.constraints import (
     UniqueConstraint,
 )
 from synthgen.spec.expressions import parse, references
-from synthgen.spec.generators import ConditionalGen, DerivedGen, Generator
+from synthgen.spec.generators import ConditionalGen, DatetimeGen, DerivedGen, Generator
 from synthgen.spec.models import ColumnSpec
 
 
@@ -23,6 +23,8 @@ def reads(gen: Generator) -> set[str]:
     if isinstance(gen, ConditionalGen):
         inner = [reads(c.generator) for c in gen.cases] + [reads(gen.otherwise)]
         return {gen.column}.union(*inner)
+    if isinstance(gen, DatetimeGen) and gen.after is not None:
+        return {gen.after.column}
     return set()
 
 

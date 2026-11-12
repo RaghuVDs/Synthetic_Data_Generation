@@ -156,6 +156,8 @@ class TemporalOrder(StrictModel):
     rows: int
     after_share: float
     lag_seconds: Spread
+    lag_quantiles: list[float]
+    """Evenly spaced quantiles of the lag in seconds (`lag_quantile_points` of them)."""
 
 
 class ParentLevel(StrictModel):

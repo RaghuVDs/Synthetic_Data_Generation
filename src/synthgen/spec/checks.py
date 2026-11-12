@@ -12,6 +12,7 @@ from synthgen.spec.expressions import ExprType, parse, type_of
 from synthgen.spec.generators import (
     BoundaryGen,
     ConditionalGen,
+    DatetimeGen,
     DerivedGen,
     ForeignKeyGen,
     Generator,
@@ -62,7 +63,7 @@ class GeneratorChecker:
         """The generation limits the checks enforce."""
         return self._settings
 
-    def problem(
+    def problem(  # noqa: PLR0911 - one branch per kind of generator
         self, table: TableSpec, column: ColumnSpec, gen: Generator, earlier: Sequence[str]
     ) -> str | None:
         """Why this generator cannot fill this column, or None when it can."""
@@ -77,6 +78,8 @@ class GeneratorChecker:
             return self._derived(gen, table, column)
         if isinstance(gen, ConditionalGen):
             return self._conditional(gen, table, column, earlier)
+        if isinstance(gen, DatetimeGen) and gen.after is not None:
+            return self._after(gen.after.column, table, column)
         return None
 
     def _shape_problem(self, column: ColumnSpec, gen: Generator) -> str | None:
@@ -134,6 +137,12 @@ class GeneratorChecker:
             return f"expression for {column.name}: {error}"
         if column.type not in _RESULTS[result]:
             return f"expression gives {result.value}, which does not suit {column.type} column"
+        return None
+
+    def _after(self, name: str, table: TableSpec, column: ColumnSpec) -> str | None:
+        kind = self.expression_types(table).get(name)
+        if name == column.name or kind not in (ExprType.DATE, ExprType.DATETIME):
+            return f"{column.name} can only follow another date of its row or its driving parent"
         return None
 
     def _conditional(

@@ -73,6 +73,7 @@ def test_spec_round_trip_and_stable_hash() -> None:
             "granularity": "date",
             "weekday_weights": None,
             "hour_weights": None,
+            "after": None,
         },
         {
             "type": "datetime",
@@ -81,6 +82,7 @@ def test_spec_round_trip_and_stable_hash() -> None:
             "granularity": "date",
             "weekday_weights": [1.0],
             "hour_weights": None,
+            "after": None,
         },
         {"type": "unknown"},
     ],

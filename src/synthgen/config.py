@@ -92,6 +92,7 @@ class ProfilingSettings(_Group):
     max_arithmetic_columns: int = Field(ge=0)
     max_conditional_levels: int = Field(ge=1)
     max_parent_columns: int = Field(ge=0)
+    lag_quantile_points: int = Field(ge=2)
     parent_sample_rows: int = Field(ge=10)
     behaviour_entities: int = Field(ge=1)
     behaviour_key_batch: int = Field(ge=1)

@@ -11,7 +11,7 @@ import pyarrow as pa
 from synthgen.domain.metadata import Relationship, TableMeta
 from synthgen.profiling.models import ColumnProfile, Measured, StatSource
 
-PROFILE_FORMAT = 4
+PROFILE_FORMAT = 5
 """Bumped when profile models change, so cached profiles of an older shape are not reused."""
 
 

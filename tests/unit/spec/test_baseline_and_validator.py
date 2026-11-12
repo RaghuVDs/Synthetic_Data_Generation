@@ -102,7 +102,9 @@ def test_baseline_generators(baseline: GenerationSpec) -> None:
     assert _gen(baseline, "customers", "joined")["granularity"] == "date"
     assert _gen(baseline, "customers", "score")["type"] == "empirical"
     assert _gen(baseline, "orders", "customer_id")["type"] == "foreign_key"
-    assert _gen(baseline, "orders", "placed")["granularity"] == "datetime"
+    placed = _gen(baseline, "orders", "placed")
+    assert placed["granularity"] == "datetime"
+    assert placed["after"]["column"] == "customers.joined"  # drawn as the join date plus a lag
     assert _gen(baseline, "orders", "paid") == {"type": "constant", "value": 0}
 
 

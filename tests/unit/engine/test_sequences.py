@@ -50,6 +50,7 @@ def _spec(customers: int = 2_000, **scenario: Any) -> GenerationSpec:
                 "granularity": "datetime",
                 "weekday_weights": None,
                 "hour_weights": None,
+                "after": None,
             },
         ),
         _col("state", "text", {"type": "constant", "value": "normal"}),

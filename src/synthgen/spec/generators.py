@@ -109,8 +109,30 @@ class CategoricalGen(StrictModel):
         return self
 
 
+class DateLag(StrictModel):
+    """A date drawn as an earlier date plus a lag: `column` (own or `parent.column`) plus a lag.
+
+    The lag comes from evenly spaced quantiles in seconds, never negative.
+    """
+
+    column: str
+    lag_quantiles: list[float] = Field(min_length=2)
+
+    @model_validator(mode="after")
+    def _lags(self) -> Self:
+        if self.lag_quantiles[0] < 0:
+            raise ValueError("lag quantiles must not be negative")
+        if any(b < a for a, b in zip(self.lag_quantiles, self.lag_quantiles[1:], strict=False)):
+            raise ValueError("lag quantiles must not decrease")
+        return self
+
+
 class DatetimeGen(StrictModel):
-    """ISO dates or timestamps between start and end, with optional weekday and hour mixes."""
+    """ISO dates or timestamps between start and end, with optional weekday and hour mixes.
+
+    With `after`, each value is that column's value plus a lag, kept at or before `end`; the
+    weekday mix is then ignored, because the lag sets the day.
+    """
 
     type: Literal["datetime"]
     start: str
@@ -118,6 +140,7 @@ class DatetimeGen(StrictModel):
     granularity: Literal["date", "datetime"]
     weekday_weights: list[float] | None
     hour_weights: list[float] | None
+    after: DateLag | None
 
     @model_validator(mode="after")
     def _check(self) -> Self:

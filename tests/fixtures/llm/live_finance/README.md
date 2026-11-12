@@ -18,7 +18,8 @@ scenario checks catch it). Everything else is unchanged from the recording.
 
 Fields added to `ScenarioSpec` after the recording (M5: `correlations`, `cardinality`,
 `sequences`, `defects`) are filled with their empty value in the recorded overlays; no recorded value was
-changed.
+changed. Likewise the `datetime` generator's `after` field (added after M6) is null in every
+recorded overlay.
 
 Hand-written (not recorded): `SpecPatch.json`. The live run needed no repair, but M6's integrity
 checks find that the recorded overlays put transactions before their card's issue date. The

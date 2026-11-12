@@ -112,7 +112,8 @@
             "end": "2023-12-31",
             "granularity": "date",
             "weekday_weights": null,
-            "hour_weights": null
+            "hour_weights": null,
+            "after": null
           }
         },
         {
@@ -269,7 +270,8 @@
             "end": "2024-06-30",
             "granularity": "date",
             "weekday_weights": null,
-            "hour_weights": null
+            "hour_weights": null,
+            "after": null
           }
         },
         {
@@ -410,7 +412,8 @@
             "end": "2024-06-30",
             "granularity": "date",
             "weekday_weights": null,
-            "hour_weights": null
+            "hour_weights": null,
+            "after": null
           }
         },
         {
@@ -684,7 +687,8 @@
               0.03945885005636979,
               0.02254791431792559,
               0.011273957158962795
-            ]
+            ],
+            "after": null
           }
         },
         {
@@ -863,7 +867,8 @@
               0.0,
               0.0,
               0.0
-            ]
+            ],
+            "after": null
           }
         }
       ],

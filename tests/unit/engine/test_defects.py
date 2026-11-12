@@ -31,6 +31,7 @@ def _spec(*defects: dict[str, Any]) -> GenerationSpec:
                 "granularity": "date",
                 "weekday_weights": None,
                 "hour_weights": None,
+                "after": None,
             },
         )
     )

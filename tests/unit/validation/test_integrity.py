@@ -44,6 +44,7 @@ def _spec(constraints: list[dict[str, Any]] | None = None) -> GenerationSpec:
                 "granularity": "date",
                 "weekday_weights": None,
                 "hour_weights": None,
+                "after": None,
             },
         ),
     ]
@@ -58,6 +59,7 @@ def _spec(constraints: list[dict[str, Any]] | None = None) -> GenerationSpec:
                 "granularity": "date",
                 "weekday_weights": None,
                 "hour_weights": None,
+                "after": None,
             },
         ),
         _col("low", "float", {"type": "empirical", "quantiles": [0.0, 10.0], "decimals": 2}),

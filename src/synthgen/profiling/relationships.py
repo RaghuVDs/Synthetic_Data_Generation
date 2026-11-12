@@ -212,6 +212,12 @@ def _temporal_orders(
                         rows=int(lag.size),
                         after_share=float(np.mean(lag >= 0)),
                         lag_seconds=spread(lag),
+                        lag_quantiles=[
+                            float(q)
+                            for q in np.quantile(
+                                lag, np.linspace(0, 1, inputs.settings.lag_quantile_points)
+                            )
+                        ],
                     )
                 )
     return found

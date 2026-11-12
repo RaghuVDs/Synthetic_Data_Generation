@@ -99,6 +99,7 @@ def test_dates_respect_range_and_weekdays() -> None:
             "granularity": "date",
             "weekday_weights": [0, 0, 0, 0, 0, 0, 1.0],
             "hour_weights": None,
+            "after": None,
         },
         n=200,
     )
@@ -116,6 +117,7 @@ def test_datetimes_respect_hours_and_bounds() -> None:
             "granularity": "datetime",
             "weekday_weights": None,
             "hour_weights": hours,
+            "after": None,
         },
         n=100,
     )

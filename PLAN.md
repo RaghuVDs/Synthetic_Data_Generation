@@ -496,6 +496,17 @@ confirmed or corrected it moves to section 3.
   columns (clip bounds and conditional cases are parameters), and sequence
   step counts and gaps. The repair analyst (prompt v2) also sees the approved
   scenarios with their signatures.
+- 2026-11-12 (user, after M6): Child dates tied to a parent date are drawn
+  relative to it (option A). The `datetime` generator gains a nullable `after`
+  ({column: an earlier date of the row or `parent.column` of the driving parent,
+  lag_quantiles: evenly spaced lag quantiles in seconds}). A value is that date
+  plus a lag from the quantiles, with the lag distribution truncated (not the
+  date clipped) so it stays at or before `end`; the weekday mix is ignored and a
+  date-time keeps its hour mix where that stays after the earlier value. The
+  profiler stores `lag_quantile_points` quantiles of each temporal order
+  (PROFILE_FORMAT 5), and the baseline sets `after` on every child date whose
+  order constraint it adds (the tightest parent date when several qualify). The
+  order constraint stays as a guard. Overlay writer prompt v4 documents the field.
 
 ## 4. Milestones
 
@@ -796,6 +807,9 @@ confirmed or corrected it moves to section 3.
 - **Goal:** measurable quality on a golden set, plus docs and a demo.
 - **Spec sections:** 11, 9, 14.
 - **Tasks:**
+  - [x] T7.0 Parent-relative dates (decision after M6): `datetime` generator
+    `after`, lag quantiles in the profile, baseline uses them. Tests:
+    `tests/unit/engine/test_lagged_dates.py`.
   - [ ] T7.1 Golden set: `tests/golden/requests/*.yaml` (15–20 requests, both
     sources, all five test types, expected intent, must-have scenarios),
     `tests/golden/roles/{finance,orders}.yaml` (hand-labelled roles).
