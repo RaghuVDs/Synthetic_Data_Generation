@@ -173,6 +173,16 @@ class SeedSettings(_Group):
     scale: float = Field(gt=0.0, le=10.0)
 
 
+class EvaluationSettings(_Group):
+    """Golden-set runs (SPEC 11): where the set lives, volumes, and how pauses are answered."""
+
+    golden_dir: Path
+    volumes: list[int] = Field(min_length=1)
+    default_answer: str = Field(min_length=1)
+    max_pauses: int = Field(ge=1)
+    report_dir: str
+
+
 class PathSettings(_Group):
     """Locations of source data, state databases, metadata and output."""
 
@@ -203,6 +213,7 @@ class Settings(_Group):
     agent: AgentSettings
     validation: ValidationSettings
     seed: SeedSettings
+    evaluation: EvaluationSettings
     paths: PathSettings
 
 

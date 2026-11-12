@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import timedelta
 from functools import cached_property
 from pathlib import Path
@@ -33,6 +33,9 @@ from synthgen.domain.pending import Pending, PendingApproval, PendingClarificati
 from synthgen.domain.report import ValidationReport
 from synthgen.domain.summary import Summary
 from synthgen.engine.writer import MANIFEST_FILE, Manifest, read_manifest, read_table
+from synthgen.evaluation.golden import load_golden
+from synthgen.evaluation.run import EvalDeps, EvalReport, run_golden, save_report
+from synthgen.evaluation.scoring import JobScore
 from synthgen.profiling.cache import profile_request, profile_version
 from synthgen.profiling.card import LlmSafeProfile, build_card
 from synthgen.profiling.models import TableProfile
@@ -241,17 +244,12 @@ class Application:
         out = self._job_dir(job_id)
         return JobReport(
             job=self.get_status(job_id),
-            final_report=self._artifacts.get(job_id, ArtifactKind.FINAL_REPORT, ValidationReport)
-            if self._has(job_id, ArtifactKind.FINAL_REPORT)
-            else None,
-            summary=self._artifacts.get(job_id, ArtifactKind.SUMMARY, Summary)
-            if self._has(job_id, ArtifactKind.SUMMARY)
-            else None,
+            final_report=self._artifacts.latest(
+                job_id, ArtifactKind.FINAL_REPORT, ValidationReport
+            ),
+            summary=self._artifacts.latest(job_id, ArtifactKind.SUMMARY, Summary),
             manifest=read_manifest(out) if (out / MANIFEST_FILE).is_file() else None,
         )
-
-    def _has(self, job_id: str, kind: ArtifactKind) -> bool:
-        return bool(self._artifacts.versions(job_id, kind))
 
     def get_preview(self, job_id: str, table: str, rows: int) -> pa.Table:
         """The first rows of one generated table."""
@@ -260,6 +258,28 @@ class Application:
         if entry is None:
             raise NotFoundError(f"job {job_id} has no output for table {table!r}")
         return read_table(self._job_dir(job_id), entry).slice(0, rows)
+
+    def run_eval(
+        self,
+        volumes: Sequence[int],
+        only: Sequence[str],
+        sources: Sequence[str],
+        on_score: Callable[[JobScore], None] | None = None,
+    ) -> tuple[EvalReport, Path]:
+        """Run the golden set (or part of it) at each volume; return the report and its file."""
+        conf = self._settings.evaluation
+        deps = EvalDeps(
+            jobs=self,
+            artifacts=self._artifacts,
+            calls=self._llm_log,
+            counters=self._runner.counters,
+            clock=self._clock,
+            default_answer=conf.default_answer,
+            max_pauses=conf.max_pauses,
+        )
+        golden = load_golden(conf.golden_dir).select(only, sources)
+        report = run_golden(golden, volumes or conf.volumes, deps, on_score)
+        return report, save_report(report, self._settings.paths.output_dir / conf.report_dir)
 
     def _job_dir(self, job_id: str) -> Path:
         return self._settings.paths.output_dir / "jobs" / job_id

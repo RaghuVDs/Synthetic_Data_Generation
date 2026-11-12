@@ -60,6 +60,10 @@ class ArtifactStore:
             raise NotFoundError(f"{kind} ({which}) not found for job {job_id}")
         return model.model_validate_json(row["content_json"])
 
+    def latest(self, job_id: str, kind: ArtifactKind, model: type[ModelT]) -> ModelT | None:
+        """The latest version, or None when the job has none of this kind."""
+        return self.get(job_id, kind, model) if self.versions(job_id, kind) else None
+
     def versions(self, job_id: str, kind: ArtifactKind) -> list[int]:
         """Stored version numbers of one artifact kind, ascending."""
         with self._db.connect() as conn:

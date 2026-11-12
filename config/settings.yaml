@@ -118,6 +118,13 @@ seed:
   random_seed: 20261110               # fixed seed for the fake source databases
   scale: 1.0                          # row-count multiplier; tests use a small fraction
 
+evaluation:
+  golden_dir: tests/golden
+  volumes: [100, 100000, 1000000]     # rows on each request's target table
+  default_answer: "Use your best judgement and the most common reading of the request."
+  max_pauses: 10                      # clarifications and approvals answered per job
+  report_dir: eval                    # inside output_dir; one JSON report per run
+
 paths:
   data_dir: data
   output_dir: output

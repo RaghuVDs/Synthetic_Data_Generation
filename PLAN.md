@@ -507,6 +507,26 @@ confirmed or corrected it moves to section 3.
   (PROFILE_FORMAT 5), and the baseline sets `after` on every child date whose
   order constraint it adds (the tightest parent date when several qualify). The
   order constraint stays as a guard. Overlay writer prompt v4 documents the field.
+- 2026-11-12 (M7): Golden set format (`tests/golden/README.md`). Each request
+  names a `target_table` that carries the eval volume as its row target, an
+  optional clarification `answer`, the expected test type and include-invalid
+  flag, and must-have scenarios. A must-have is covered when a planned scenario
+  has one of its categories, spans its tables, and has a lever or signature
+  assertion on one of its columns (any column when none are listed). Role labels
+  list every acceptable role per column (an account's `customer_id` may be an
+  entity key or a foreign key).
+- 2026-11-12 (M7): Metric definitions. Intent accuracy: test type and
+  include-invalid both match. Role accuracy: labelled columns of the job's
+  tables mapped to an acceptable role. Plan coverage: share of must-haves
+  covered by the latest plan. First-pass spec validity: no spec repair round.
+  Repair loops: spec plus dry-run repair rounds. Dry-run pass rate: the first
+  dry run passed. Tokens and LLM latency come from `llm_calls`; time per job is
+  wall-clock. A metric a job never reached is left out of the averages.
+- 2026-11-12 (M7): `evaluation` is a new package at rank 7 (beside `agents`
+  and `sources`), reading jobs through protocols the application implements.
+  Eval jobs auto-approve; a clarification gets the request's `answer` or
+  `evaluation.default_answer`, and at most `evaluation.max_pauses` pauses are
+  answered. Reports are saved as JSON under `output/eval/`.
 
 ## 4. Milestones
 
@@ -810,10 +830,10 @@ confirmed or corrected it moves to section 3.
   - [x] T7.0 Parent-relative dates (decision after M6): `datetime` generator
     `after`, lag quantiles in the profile, baseline uses them. Tests:
     `tests/unit/engine/test_lagged_dates.py`.
-  - [ ] T7.1 Golden set: `tests/golden/requests/*.yaml` (15–20 requests, both
+  - [x] T7.1 Golden set: `tests/golden/requests/*.yaml` (15–20 requests, both
     sources, all five test types, expected intent, must-have scenarios),
     `tests/golden/roles/{finance,orders}.yaml` (hand-labelled roles).
-  - [ ] T7.2 Eval: `app.run_eval`, `cli` `eval` command, metrics (intent
+  - [x] T7.2 Eval: `app.run_eval`, `cli` `eval` command, metrics (intent
     accuracy, role accuracy, plan coverage, first-pass spec validity, repair
     loops, dry-run pass rate, tokens, latency). Tests on the stub.
   - [ ] T7.3 Scale runs: golden set on both sources at 100, 100,000 and

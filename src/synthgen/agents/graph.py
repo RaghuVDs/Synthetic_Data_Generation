@@ -41,7 +41,7 @@ from synthgen.agents.nodes import (
 from synthgen.agents.nodes.deps import NodeDeps, StateUpdate
 from synthgen.agents.state import JobState, checkpoint_types, initial_state
 from synthgen.domain.errors import LlmOutputError, SynthgenError
-from synthgen.domain.job import JobStatus, UserRequest
+from synthgen.domain.job import JobStatus, LoopCounters, UserRequest
 from synthgen.domain.pending import Pending
 
 logger = logging.getLogger(__name__)
@@ -154,6 +154,12 @@ class JobRunner:
         if not snapshot.interrupts:
             return None
         return TypeAdapter(Pending).validate_python(snapshot.interrupts[0].value)
+
+    def counters(self, job_id: str) -> LoopCounters:
+        """How often each capped loop of the job has run; zeros before it starts."""
+        values = self._graph.get_state(self._config(job_id)).values
+        found = values.get("counters") if values else None
+        return found if isinstance(found, LoopCounters) else LoopCounters()
 
     def has_run(self, job_id: str) -> bool:
         """True once the job has a checkpoint."""
