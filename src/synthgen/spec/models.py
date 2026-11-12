@@ -10,6 +10,7 @@ from pydantic import Field, model_validator
 
 from synthgen.domain.base import StrictModel
 from synthgen.domain.plan import ScenarioCategory, ScenarioUnit
+from synthgen.spec.constraints import Constraint, DefectSpec
 from synthgen.spec.expressions import ExprType
 from synthgen.spec.generators import Generator, Scalar
 from synthgen.spec.shapes import CardinalityOverride, ChildCount, SequenceSpec
@@ -117,6 +118,7 @@ class TableSpec(StrictModel):
     row_rule: RowRule
     columns: list[ColumnSpec] = Field(min_length=1)
     correlation: CorrelationSpec | None
+    constraints: list[Constraint]
 
     def column(self, name: str) -> ColumnSpec | None:
         """One column's spec, or None when the table has no such column."""
@@ -163,6 +165,7 @@ class ScenarioSpec(StrictModel):
     correlations: list[CorrelationOverride]
     cardinality: list[CardinalityOverride]
     sequences: list[SequenceSpec]
+    defects: list[DefectSpec]
 
 
 class OverlaySet(StrictModel):

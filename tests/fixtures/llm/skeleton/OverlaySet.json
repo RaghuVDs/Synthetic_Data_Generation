@@ -26,7 +26,8 @@
           ],
           "correlations": [],
           "cardinality": [],
-          "sequences": []
+          "sequences": [],
+          "defects": []
         }
       ]
     }

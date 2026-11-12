@@ -362,6 +362,28 @@ confirmed or corrected it moves to section 3.
   (timing_shift on a measure suggests value_shift). Tests that used
   `sequence` as the unavailable example use a role mismatch, or patch the
   construct list.
+- 2026-11-11 (M5): Constraints (`spec/constraints.py`, `TableSpec.constraints`):
+  order, range, unique (several columns), not_null and expression. The engine
+  draws all columns, then enforces constraints, then adds nulls (SPEC 8.5
+  order), so not_null columns are skipped by the null step. A broken order
+  swaps the two values (a parent-side order reflects the child above the
+  parent value); range clips; unique and expression redraw the free columns
+  (and recompute what is derived from them) up to 20 rounds, then fail. The
+  baseline adds profiled `a <= b` rules, child-on-or-after-parent dates for
+  the driving relationship (`generation.order_min_share`), and makes
+  `c = a + b` / `c = a * b` columns derived (one level deep). Overlays and
+  sequences run after constraints, so scenario rows may break them on purpose.
+- 2026-11-11 (M5): Unique semantic columns get a permuted counter starting at
+  the chunk's row offset (inserted before the `@` of an email, else appended),
+  so unique emails use the semantic pool; other unique sensitive text keeps
+  masks.
+- 2026-11-11 (M5): Defects (`ScenarioSpec.defects`: null, out_of_range,
+  bad_format, orphan_key, duplicate_key at a `rate` of the scenario's rows in
+  a table on or below its entity) run last and are labelled `kind:column` in a
+  new `_defect` column on every table (null when clean). They are allowed only
+  when the intent has `include_invalid` (`validate_spec(..., allow_defects=)`).
+  Integrity checks skip labelled defect rows, and uniqueness is judged among
+  clean rows; M6 checks that defect rows really are broken.
 
 ## 4. Milestones
 
@@ -616,7 +638,7 @@ confirmed or corrected it moves to section 3.
     `spec/validator.py`. Tests: Spearman matrix recovered. Wide tables: the
     copula covers at most `generation.max_copula_columns` correlated columns.
   - [x] T5.4 Sequences and state paths: `engine/sequences.py`. Tests.
-  - [ ] T5.5 Constraints, nulls, defects: `engine/constraints.py`,
+  - [x] T5.5 Constraints, nulls, defects: `engine/constraints.py`,
     `engine/defects.py` (`_defect`). Tests.
   - [ ] T5.6 Primitive coverage: `tests/unit/engine/test_primitives.py` (one
     test per primitive, spec construct → observable effect).

@@ -20,6 +20,7 @@ from numpy.typing import NDArray
 from synthgen.config import GenerationSettings
 from synthgen.domain.errors import EngineError
 from synthgen.engine.columns import TableDraw, apply_overlays, draw_columns
+from synthgen.engine.defects import DEFECT_COLUMN, apply_defects
 from synthgen.engine.generators import GenContext, SemanticPools, Values
 from synthgen.engine.keys import plan_children
 from synthgen.engine.scenarios import assign_scenarios, categories
@@ -33,7 +34,7 @@ from synthgen.engine.writer import (
     write_manifest,
     write_part,
 )
-from synthgen.spec.dependencies import parent_reads
+from synthgen.spec.dependencies import constraint_reads, parent_reads
 from synthgen.spec.evaluator import Column
 from synthgen.spec.models import (
     EXPR_TYPES,
@@ -134,25 +135,38 @@ def _generate_table(
     keys = values[key.name] if key else np.arange(n)
     assigned = assign_scenarios(keys, inherited, own, spec.seed)
     apply_overlays(draw, spec.scenarios, values, assigned)
+    defects = apply_defects(draw, spec.scenarios, values, assigned)
     columns = [pa.array(_cast(values[c.name], c), type=ARROW_TYPES[c.type]) for c in table.columns]
     columns += [
         pa.array(assigned, type=pa.string()),
         pa.array(categories(assigned, spec.scenarios), type=pa.string()),
+        pa.array(defects, type=pa.string()),
     ]
-    return pa.table(
-        columns, names=[c.name for c in table.columns] + [SCENARIO_COLUMN, CATEGORY_COLUMN]
-    )
+    names = [c.name for c in table.columns] + [SCENARIO_COLUMN, CATEGORY_COLUMN, DEFECT_COLUMN]
+    return pa.table(columns, names=names)
 
 
 def _parent_frame(
     spec: GenerationSpec, table: TableSpec, reader: _Reader, parent_rows: NDArray[np.int64]
 ) -> dict[str, Column]:
-    """Driving-parent columns (`parent.column`) that this table's generators or overlays read."""
-    gens = [c.generator for c in table.columns] + [
-        o.generator for s in spec.scenarios for o in s.overrides if o.table == table.name
-    ]
+    """Driving-parent columns (`parent.column`) the table's specs read.
+
+    Generators, overrides, sequence steps and constraints may all read the parent row.
+    """
+    gens = [c.generator for c in table.columns]
+    for scenario in spec.scenarios:
+        gens += [o.generator for o in scenario.overrides if o.table == table.name]
+        gens += [
+            c.generator
+            for q in scenario.sequences
+            if q.table == table.name
+            for step in q.steps
+            for c in step.columns
+        ]
+    names = set().union(*(parent_reads(g) for g in gens))
+    names |= {n for c in table.constraints for n in constraint_reads(c) if "." in n}
     frame: dict[str, Column] = {}
-    for name in sorted(set().union(*(parent_reads(g) for g in gens))):
+    for name in sorted(names):
         parent_name, column_name = name.split(".", 1)
         parent = spec.table(parent_name)
         column = parent.column(column_name) if parent else None

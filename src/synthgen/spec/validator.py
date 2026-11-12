@@ -22,14 +22,20 @@ from synthgen.spec.models import (
     SpecError,
     TableSpec,
 )
+from synthgen.spec.rule_checks import constraint_problem, defect_problem
 from synthgen.spec.shape_checks import shape_problems
 
 SHARE_TOLERANCE = 1e-9
 Origin = Literal["baseline", "overlay"]
 
 
-def validate_spec(spec: GenerationSpec, settings: GenerationSettings) -> list[SpecError]:
-    """Every problem found; an empty list means the spec may run."""
+def validate_spec(
+    spec: GenerationSpec, settings: GenerationSettings, *, allow_defects: bool = False
+) -> list[SpecError]:
+    """Every problem found; an empty list means the spec may run.
+
+    Defects are allowed only when the request asked for invalid data.
+    """
     errors: list[SpecError] = []
     seen: list[str] = []
     checker = GeneratorChecker(spec, settings)
@@ -37,6 +43,12 @@ def validate_spec(spec: GenerationSpec, settings: GenerationSettings) -> list[Sp
         errors += _table_errors(checker, table, f"/tables/{i}", seen, settings)
         seen.append(table.name)
     errors += _scenario_errors(spec, checker)
+    errors += [
+        _error("overlay", f"/scenarios/{i}/defects/{j}", problem, scenario.name)
+        for i, scenario in enumerate(spec.scenarios)
+        for j, defect in enumerate(scenario.defects)
+        if (problem := defect_problem(spec, scenario, defect, allowed=allow_defects))
+    ]
     return errors
 
 
@@ -72,6 +84,11 @@ def _table_errors(
         generation_order(table.columns)
     except ExpressionError as error:
         errors.append(_error("baseline", f"{path}/columns", str(error)))
+    errors += [
+        _error("baseline", f"{path}/constraints/{k}", problem)
+        for k, constraint in enumerate(table.constraints)
+        if (problem := constraint_problem(checker, table, constraint))
+    ]
     if table.correlation is not None:
         generators = {c.name: c.generator for c in table.columns}
         problem = checker.correlation_problem(table, table.correlation, generators)

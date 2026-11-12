@@ -61,6 +61,20 @@ def semantic(gen: SemanticGen, n: int, rng: np.random.Generator, ctx: GenContext
     return pool[rng.integers(0, pool.size, n)]
 
 
+def with_counter(values: Values, offset: int, rng: np.random.Generator) -> Values:
+    """Values made unique by a permuted counter: before the `@` of an email, else appended.
+
+    Counters start at the chunk's row offset, so chunks never share one.
+    """
+    counters = offset + rng.permutation(values.size)
+    out = np.empty(values.size, dtype=object)
+    for index, (value, counter) in enumerate(zip(values.tolist(), counters.tolist(), strict=True)):
+        text = str(value)
+        local, at, domain = text.partition("@")
+        out[index] = f"{local}.{counter}@{domain}" if at else f"{text} {counter}"
+    return out
+
+
 Maker = Callable[[Faker], str]
 
 

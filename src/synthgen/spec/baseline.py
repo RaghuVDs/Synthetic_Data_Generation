@@ -12,6 +12,7 @@ from synthgen.domain.errors import SpecCompilationError
 from synthgen.domain.metadata import ColumnMeta, Relationship, Sensitivity, TableMeta, TableSet
 from synthgen.domain.semantic import SemanticMap
 from synthgen.profiling.models import ColumnProfile, InferredType, TableProfile
+from synthgen.spec.baseline_rules import derived_columns, order_constraints
 from synthgen.spec.checks import COPULA_GENERATORS
 from synthgen.spec.correlation import as_matrix, nearest_correlation
 from synthgen.spec.generators import (
@@ -95,11 +96,14 @@ def _table(name: str, inputs: BaselineInputs, settings: GenerationSettings) -> T
         if column is None:
             raise SpecCompilationError(f"profile of {name} has no column {meta.name}")
         columns.append(_column(meta, column, keys.get(meta.name), is_label=meta.name == label))
+    columns = derived_columns(profile, columns)
+    row_rule = _row_rule(name, inputs, settings)
     return TableSpec(
         name=name,
-        row_rule=_row_rule(name, inputs, settings),
+        row_rule=row_rule,
         columns=columns,
         correlation=_correlation(profile, columns, settings),
+        constraints=order_constraints(profile, columns, row_rule, settings.order_min_share),
     )
 
 
@@ -194,6 +198,8 @@ def _generator(  # noqa: PLR0911 - one branch per kind of column
     if is_label and column.top_value is not None:
         return ConstantGen(type="constant", value=column.top_value.value)
     if meta.unique and column.inferred_type is InferredType.TEXT:
+        if _sensitive_kind(meta, column) is K.EMAIL:
+            return SemanticGen(type="semantic", kind=K.EMAIL)  # the engine adds a unique counter
         return _pattern(column)  # observed values cannot stay unique once more rows are asked for
     if column.sensitivity is Sensitivity.SENSITIVE:
         kind = _sensitive_kind(meta, column)

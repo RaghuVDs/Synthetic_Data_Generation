@@ -83,19 +83,7 @@ def test_every_primitive_has_a_rule() -> None:
 
 
 def test_available_constructs_follow_the_spec_models() -> None:
-    assert available_constructs() == {
-        Construct.OVERRIDE,
-        Construct.CATEGORICAL,
-        Construct.DATETIME,
-        Construct.CONDITIONAL,
-        Construct.BOUNDARY,
-        Construct.TEXT_POOL,
-        Construct.FK_WEIGHTS,
-        Construct.SHARED_GROUP,
-        Construct.CORRELATION,
-        Construct.SEQUENCE,
-        Construct.CARDINALITY,
-    }
+    assert available_constructs() == frozenset(Construct)
 
 
 def test_feasibility_statuses(monkeypatch: pytest.MonkeyPatch) -> None:

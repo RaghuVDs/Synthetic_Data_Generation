@@ -42,6 +42,7 @@ def make_spec(
             "tables": [
                 {
                     "name": "customers",
+                    "constraints": [],
                     "correlation": None,
                     "row_rule": {"kind": "fixed", "rows": customers},
                     "columns": [
@@ -73,6 +74,7 @@ def make_spec(
                 },
                 {
                     "name": "orders",
+                    "constraints": [],
                     "correlation": None,
                     "row_rule": {
                         "kind": "per_parent",
@@ -128,6 +130,7 @@ BIG = {
     "correlations": [],
     "cardinality": [],
     "sequences": [],
+    "defects": [],
     "overrides": [
         {
             "table": "orders",

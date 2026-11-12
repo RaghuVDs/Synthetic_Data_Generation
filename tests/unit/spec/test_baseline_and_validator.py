@@ -142,6 +142,7 @@ def _with_overlay(baseline: GenerationSpec, **changes: Any) -> GenerationSpec:
         "correlations": [],
         "cardinality": [],
         "sequences": [],
+        "defects": [],
         "overrides": [
             {
                 "table": "orders",
@@ -324,4 +325,60 @@ def test_baseline_correlates_columns_the_profile_found_related(
     assert correlation is not None
     assert correlation.columns == ["income", "credit_limit"]
     assert correlation.spearman[0][1] > 0.8
+    assert validate_spec(spec, generation_settings) == []
+
+
+def test_baseline_turns_profiled_rules_into_constraints_and_derived_columns(
+    tmp_path: Path, profiling_settings: ProfilingSettings, generation_settings: GenerationSettings
+) -> None:
+    path = tmp_path / "bills.db"
+    rng = np.random.default_rng(5)
+    n = 3_000
+    net = np.round(rng.lognormal(4, 0.6, n), 2)
+    tax = np.round(rng.uniform(1, 30, n), 2)
+    opened = np.datetime64("2023-01-01") + rng.integers(0, 365, n).astype("timedelta64[D]")
+    closed = opened + rng.integers(0, 60, n).astype("timedelta64[D]")
+    with closing(sqlite3.connect(path)) as conn:
+        conn.execute(
+            "CREATE TABLE bills (id INTEGER PRIMARY KEY, net REAL, tax REAL, gross REAL,"
+            " opened TEXT, closed TEXT)"
+        )
+        conn.executemany(
+            "INSERT INTO bills VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                (i + 1, float(a), float(b), float(round(a + b, 2)), str(o), str(c))
+                for i, (a, b, o, c) in enumerate(zip(net, tax, opened, closed, strict=True))
+            ],
+        )
+        conn.commit()
+    with closing(SqliteConnector(path)) as connector:
+        provider = YamlMetadataProvider(SourceDoc(source="bills"), connector)
+        profile = profile_table(
+            "bills",
+            connector,
+            provider.table("bills"),
+            [],
+            parents={},
+            settings=profiling_settings,
+            seed=1,
+            now=PROFILE_NOW,
+        )
+        spec = compile_baseline(
+            BaselineInputs(
+                table_set=build_table_set(["bills"], ["bills"], []),
+                tables={"bills": provider.table("bills")},
+                profiles={"bills": profile},
+                profile_versions={"bills": "v"},
+                semantic_map=None,
+                row_targets={},
+                seed=1,
+            ),
+            generation_settings,
+        )
+    table = spec.tables[0]
+    gross = table.column("gross")
+    assert gross is not None and gross.generator.type == "derived"
+    assert gross.generator.expression in ("net + tax", "tax + net")
+    orders = [(c.lower, c.upper) for c in table.constraints if c.kind == "order"]
+    assert ("opened", "closed") in orders
     assert validate_spec(spec, generation_settings) == []

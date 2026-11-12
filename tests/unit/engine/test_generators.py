@@ -11,6 +11,7 @@ from pydantic import TypeAdapter
 
 from synthgen.domain.errors import EngineError
 from synthgen.engine.generators import GenContext, SemanticPools, Values, generate
+from synthgen.engine.generators.text import with_counter
 from synthgen.spec.evaluator import Column
 from synthgen.spec.expressions import ExprType
 from synthgen.spec.generators import Generator, SemanticKind
@@ -323,3 +324,11 @@ def test_conditional_picks_a_generator_per_row() -> None:
         frame=FRAME,
     )
     assert values.tolist() == [100.0, 0, 300.0, 0]
+
+
+def test_unique_semantic_values_get_a_counter() -> None:
+    values = np.array(["a@x.com", "a@x.com", "Ann Lee"], dtype=object)
+    out = with_counter(values, 100, np.random.default_rng(1)).tolist()
+    assert len(set(out[:2])) == 2
+    assert re.fullmatch(r"Ann Lee 10[0-2]", out[2])
+    assert all(re.fullmatch(r"a\.10[0-2]@x\.com", v) for v in out[:2])

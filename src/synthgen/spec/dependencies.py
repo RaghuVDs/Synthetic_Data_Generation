@@ -5,6 +5,12 @@ from __future__ import annotations
 from collections.abc import Sequence, Set
 
 from synthgen.domain.errors import ExpressionError
+from synthgen.spec.constraints import (
+    Constraint,
+    ExpressionConstraint,
+    OrderConstraint,
+    UniqueConstraint,
+)
 from synthgen.spec.expressions import parse, references
 from synthgen.spec.generators import ConditionalGen, DerivedGen, Generator
 from synthgen.spec.models import ColumnSpec
@@ -18,6 +24,17 @@ def reads(gen: Generator) -> set[str]:
         inner = [reads(c.generator) for c in gen.cases] + [reads(gen.otherwise)]
         return {gen.column}.union(*inner)
     return set()
+
+
+def constraint_reads(constraint: Constraint) -> set[str]:
+    """Columns a constraint reads, including `table.column` names of the driving parent."""
+    if isinstance(constraint, OrderConstraint):
+        return {constraint.lower, constraint.upper}
+    if isinstance(constraint, ExpressionConstraint):
+        return references(parse(constraint.expression))
+    if isinstance(constraint, UniqueConstraint):
+        return set(constraint.columns)
+    return {constraint.column}
 
 
 def own_reads(gen: Generator) -> set[str]:

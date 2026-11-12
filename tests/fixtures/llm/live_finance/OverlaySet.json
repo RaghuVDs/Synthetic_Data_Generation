@@ -44,7 +44,8 @@
           ],
           "correlations": [],
           "cardinality": [],
-          "sequences": []
+          "sequences": [],
+          "defects": []
         },
         {
           "name": "large_nighttime_purchases",
@@ -87,7 +88,8 @@
           ],
           "correlations": [],
           "cardinality": [],
-          "sequences": []
+          "sequences": [],
+          "defects": []
         },
         {
           "name": "legitimate_large_daytime",
@@ -130,7 +132,8 @@
           ],
           "correlations": [],
           "cardinality": [],
-          "sequences": []
+          "sequences": [],
+          "defects": []
         },
         {
           "name": "boundary_transactions_amount",
@@ -154,7 +157,8 @@
           ],
           "correlations": [],
           "cardinality": [],
-          "sequences": []
+          "sequences": [],
+          "defects": []
         },
         {
           "name": "volume_skew_transactions_merchant",
@@ -181,7 +185,8 @@
           ],
           "correlations": [],
           "cardinality": [],
-          "sequences": []
+          "sequences": [],
+          "defects": []
         }
       ]
     }

@@ -79,6 +79,7 @@ def _scenario(name: str, share: float) -> ScenarioSpec:
             "correlations": [],
             "cardinality": [],
             "sequences": [],
+            "defects": [],
             "overrides": [],
         }
     )

@@ -121,6 +121,7 @@ class GenerationSettings(_Group):
     max_copula_columns: int = Field(ge=2)
     copula_min_rho: float = Field(ge=0.0, le=1.0)
     max_sequence_events: int = Field(ge=1)
+    order_min_share: float = Field(ge=0.0, le=1.0)
 
 
 class LoopCaps(_Group):

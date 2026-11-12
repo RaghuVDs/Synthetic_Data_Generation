@@ -14,15 +14,18 @@ import numpy as np
 from numpy.typing import NDArray
 
 from synthgen.domain.errors import EngineError
+from synthgen.engine.constraints import enforce
 from synthgen.engine.copula import correlated_uniforms
 from synthgen.engine.generators import GenContext, Values, generate
 from synthgen.engine.generators.basic import from_uniform
+from synthgen.engine.generators.text import with_counter
 from synthgen.engine.scenarios import ObjectArray
 from synthgen.engine.sequences import SequenceDraw, apply_sequence
+from synthgen.spec.constraints import NotNullConstraint
 from synthgen.spec.dependencies import downstream, generation_order, own_reads, reads
 from synthgen.spec.distributions import DistributionGen
 from synthgen.spec.evaluator import Column
-from synthgen.spec.generators import EmpiricalGen, Generator
+from synthgen.spec.generators import EmpiricalGen, Generator, SemanticGen
 from synthgen.spec.models import (
     EXPR_TYPES,
     ColumnSpec,
@@ -32,6 +35,7 @@ from synthgen.spec.models import (
 )
 
 MAX_UNIQUE_REDRAWS = 20
+_COMPUTED = ("sequence", "derived", "conditional")
 
 
 @dataclass(frozen=True)
@@ -44,7 +48,10 @@ class TableDraw:
 
 
 def draw_columns(draw: TableDraw, n: int, fixed: Mapping[str, Values]) -> dict[str, Values]:
-    """Every column of the table; `fixed` columns (the driving key) are taken as given."""
+    """Every column of the table; `fixed` columns (the driving key) are taken as given.
+
+    Order (SPEC 8.5): columns in dependency order, then constraints, then nulls.
+    """
     table, rng, ctx = draw.table, draw.rng, draw.ctx
     values: dict[str, Values] = {}
     frame: dict[str, Column] = dict(ctx.frame)
@@ -54,9 +61,36 @@ def draw_columns(draw: TableDraw, n: int, fixed: Mapping[str, Values]) -> dict[s
         if drawn is None:
             needed = {k: frame[k] for k in reads(column.generator)}
             drawn = _draw(column, n, rng, replace(ctx, frame=needed))
-        values[column.name] = _with_nulls(drawn, column, rng)
-        frame[column.name] = (EXPR_TYPES[column.type], values[column.name])
+        values[column.name] = drawn
+        frame[column.name] = (EXPR_TYPES[column.type], drawn)
+    types = {c.name: EXPR_TYPES[c.type] for c in table.columns}
+    enforce(
+        table.constraints,
+        values,
+        types,
+        ctx.frame,
+        lambda name, rows: _constraint_redraw(draw, set(fixed), values, name, rows),
+    )
+    never_null = {c.column for c in table.constraints if isinstance(c, NotNullConstraint)}
+    for column in table.columns:
+        if column.name not in never_null:
+            values[column.name] = _with_nulls(values[column.name], column, rng)
     return values
+
+
+def _constraint_redraw(
+    draw: TableDraw, fixed: set[str], values: dict[str, Values], name: str, rows: NDArray[np.int64]
+) -> None:
+    """Fresh values for a column a constraint rejected, and for every column computed from it.
+
+    Keys and computed columns are never redrawn themselves; their inputs are.
+    """
+    column = _column(draw.table, name)
+    if name in fixed or column.primary_key or column.generator.type in _COMPUTED:
+        return
+    _redraw(draw, column.generator, name, values, rows)
+    for dependent in downstream(draw.table.columns, {name}):
+        _redraw(draw, dependent.generator, dependent.name, values, rows)
 
 
 def _copula_draws(
@@ -82,6 +116,10 @@ def _draw(column: ColumnSpec, n: int, rng: np.random.Generator, ctx: GenContext)
     values = generate(column.generator, n, rng, ctx)
     if not column.unique:
         return values
+    if isinstance(column.generator, SemanticGen):
+        return with_counter(
+            values, ctx.row_offset, rng
+        )  # pools are small; a counter keeps them unique
     for _ in range(MAX_UNIQUE_REDRAWS):
         _, first = np.unique(values.astype(str), return_index=True)
         repeats = np.setdiff1d(np.arange(n), first)

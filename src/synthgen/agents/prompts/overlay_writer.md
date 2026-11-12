@@ -38,6 +38,11 @@ rows, and which label values those rows carry.
   between consecutive events and must be above 0; a step's columns (e.g. a status) are set on
   its events, so steps can walk a state path. The parent gets exactly the steps' events unless
   cardinality says otherwise. Use [] when the scenario has no sequence.
+- defects (rule_break) deliberately break values, only when the request asked for invalid data:
+  {"table": str, "column": str, "kind": "null" | "out_of_range" | "bad_format" | "orphan_key" |
+  "duplicate_key", "rate": share of the scenario's rows, above 0 and at most 1}. out_of_range
+  suits numbers and dates, bad_format text and dates, orphan_key foreign keys, duplicate_key
+  keys and unique columns. Broken rows are labelled in _defect. Use [] otherwise.
 - If SPEC_ERRORS is not "none", fix every listed error.
 - Leave out every lever listed in NOT_EXPRESSIBLE_PARTS; do not approximate it with another
   generator. Express the rest of the scenario.
@@ -97,4 +102,4 @@ Output:
   "labels": [{"table": "subscriptions", "column": "churned", "value": 1}],
   "overrides": [{"table": "viewing_sessions", "column": "minutes",
                  "generator": {"type": "empirical", "quantiles": [0.5, 2.0], "decimals": 1}}],
-  "correlations": [], "cardinality": [], "sequences": []}]}
+  "correlations": [], "cardinality": [], "sequences": [], "defects": []}]}

@@ -81,6 +81,7 @@ generation:
   max_copula_columns: 50              # most columns one Gaussian copula covers (wide tables)
   copula_min_rho: 0.1                 # |Spearman| a column needs with another to join the copula
   max_sequence_events: 1000           # events per entity one scenario sequence may lay out
+  order_min_share: 0.999              # share of profiled rows a child-after-parent date order needs
 
 agent:
   caps:

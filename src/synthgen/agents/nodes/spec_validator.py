@@ -20,7 +20,9 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
     else:
         spec = load_spec(state, deps)
     spec = repair_correlations(spec)
-    errors = validate_spec(spec, deps.settings.generation)
+    intent = state["intent"]
+    allow = intent is not None and intent.include_invalid
+    errors = validate_spec(spec, deps.settings.generation, allow_defects=allow)
     if errors:
         return {"spec_errors": errors, "spec_ref": None}
     version = deps.artifacts.put(job_id, ArtifactKind.SPEC, spec)
