@@ -45,7 +45,7 @@ def test_clean_output_passes(tmp_path: Path, settings: ValidationSettings) -> No
     assert report.passed, report.failures()
     assert (tmp_path / REPORT_FILE).is_file()
     families = {r.family for r in report.results}
-    assert families == {CheckFamily.INTEGRITY, CheckFamily.FIDELITY}
+    assert families == {CheckFamily.INTEGRITY, CheckFamily.FIDELITY, CheckFamily.SCENARIO}
 
 
 def test_duplicate_primary_key_fails(tmp_path: Path, settings: ValidationSettings) -> None:

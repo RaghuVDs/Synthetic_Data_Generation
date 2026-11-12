@@ -18,9 +18,9 @@ REQUEST = UserRequest(
 
 def _overlay(column: str, generator: dict[str, Any]) -> dict[str, Any]:
     overlays = skeleton("OverlaySet")
-    overlays["scenarios"][0]["overrides"] = [
-        {"table": "accounts", "column": column, "generator": generator}
-    ]
+    overlays["scenarios"][0]["overrides"].insert(
+        0, {"table": "accounts", "column": column, "generator": generator}
+    )
     return overlays
 
 

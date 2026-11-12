@@ -454,6 +454,22 @@ confirmed or corrected it moves to section 3.
   transactions before their card's issue date, which M6 integrity now catches,
   and the patch moves the overlay time windows after the last issue date. The
   replay therefore includes one repair round.
+- 2026-11-12 (M6): Scenario family. `present` (at least one entity row) and
+  `share` (exact count from the approved share over eligible rows of the
+  entity table, tolerance max(10% relative, 1 row), PLAN A2); `signature` per
+  plan assertion (pass rate over rows for `value`/`hour_of_day`, over scenario
+  entities for aggregates, which group rows by walking driving keys up to the
+  scenario entity; `window_hours` takes the best window for count, sum and
+  distinct count; event times come from the scenario's sequence time column,
+  else the first date-time, else the first date); `separation` (KS against
+  typical rows on numeric and time signature columns, skipping columns the
+  scenario sets as labels); `near_miss` (near-miss rows matching every
+  row-level assertion of a target's signature on the same table); `labels`
+  (scenario rows carry their label values) and `label_counts` (rows per
+  scenario equal the manifest). Text compares as text.
+- 2026-11-12 (M6): The recorded replay's `volume_skew_transactions_merchant`
+  signature (at least 160,000 rows per transaction) cannot be met; the replay
+  test removes it at approval and its hand-written overlay is gone.
 
 ## 4. Milestones
 
@@ -736,7 +752,7 @@ confirmed or corrected it moves to section 3.
     reads Parquet in column batches for wide tables. Tests.
   - [x] T6.2 Integrity complete: formats, constraints, parent date before child
     date. Tests.
-  - [ ] T6.3 Scenario family: `validation/signature.py`,
+  - [x] T6.3 Scenario family: `validation/signature.py`,
     `validation/scenario.py` (share, presence, signature ≥ 99%, KS ≥ 0.30,
     near-miss = 0, labels vs manifest). Tests.
   - [ ] T6.4 Privacy family: `validation/privacy.py` (per Q7). Tests.

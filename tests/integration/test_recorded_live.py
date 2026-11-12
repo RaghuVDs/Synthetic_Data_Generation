@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import UTC, datetime
 
 from synthgen.app import Application
 from synthgen.domain.feasibility import FeasibilityStatus
-from synthgen.domain.job import ArtifactKind, JobStatus, UserRequest
+from synthgen.domain.job import Approval, ApprovalDecision, ArtifactKind, JobStatus, UserRequest
 from synthgen.domain.plan import ScenarioPlan
 
 from .helpers import FIXTURES
@@ -26,7 +27,17 @@ REQUEST = UserRequest(
 def test_recorded_live_answers_pass_every_gate(make_app: AppFactory, job_env: EnvFactory) -> None:
     env = job_env(FIXTURES / "live_finance", SYNTHGEN_AGENT__CAPS__PLANNER_TOOL_CALLS="1")
     app = make_app(env)
-    view = app.start_job(REQUEST)
+    pending = app.start_job(REQUEST.model_copy(update={"auto_approve": False}))
+    # The recorded signature of this scenario asks for 160,000 rows per transaction; a tester
+    # removes it at approval (see the fixture README).
+    view = app.decide_plan(
+        pending.job.job_id,
+        Approval(
+            decision=ApprovalDecision.EDITED,
+            removed_scenarios=("volume_skew_transactions_merchant",),
+            decided_at=datetime.now(UTC),
+        ),
+    )
     assert view.job.status is JobStatus.COMPLETED, view.job.error
     job_id = view.job.job_id
     plan = app._artifacts.get(job_id, ArtifactKind.PLAN, ScenarioPlan)
