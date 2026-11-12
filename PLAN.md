@@ -785,3 +785,14 @@ confirmed or corrected it moves to section 3.
   count, income-score Spearman 0.83, and date orders. `profile --source
   finance --tables transactions` profiles 200,000 rows in about 15 s; a
   3,000-column table profiles in about 17 s.
+- 2026-11-12 M5 Full engine done: `make check` passes (878 tests, 97% coverage
+  on domain/spec/engine/validation). All 14 generators, the expression
+  grammar, the Gaussian copula with nearest-valid repair, sequences and state
+  paths, per-scenario cardinality, constraints, unique counters and opt-in
+  labelled defects; one test per primitive. Chunks are planned per table
+  (families never split), run on 1 or more spawn workers with same-seed
+  retries, and a restart skips finished chunks. `make test-slow` generates
+  1,000,000 transactions (plus parents) from `finance_1m.json` with 2 workers
+  and again with 1: identical bytes, 41 s for both runs, about 0.6 GB peak in
+  the main process. The recorded Groq replay gained two hand-written overlays
+  for scenarios M5 made expressible (marked in its README).
