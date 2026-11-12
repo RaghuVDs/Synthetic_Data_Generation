@@ -295,6 +295,44 @@ confirmed or corrected it moves to section 3.
   seasonality, gaps and growth; ranges over `max_series_days` skip trend and
   seasonality. Growth counts rows per month, or per year past
   `max_series_months`.
+- 2026-11-11 (M5): Expressions are split into `spec/expressions.py` (tokenizer,
+  recursive-descent parser, type check) and `spec/evaluator.py` (vectorised
+  evaluation) to keep modules under 300 lines. The conditional is Python-style
+  (`a if cond else b`); `parent.column` reads the driving parent row; units are
+  seconds to weeks (no months). Nulls propagate through arithmetic and
+  functions; a comparison with a null is false; division by zero gives null.
+  Length (1,000 characters) and nesting (40) are capped.
+- 2026-11-11 (M5): Generator shapes. `conditional` holds leaf generators only
+  (no recursion in the strict schema) and its fallback field is `otherwise`
+  (a property named `default` collides with the dropped JSON-schema keyword).
+  `foreign_key` keeps one model with nullable `exponent`, `hot_keys`,
+  `hot_share`, `group_size`, each required by exactly its distribution; hot
+  keys and shared groups are chosen by a seeded hash of the parent keys, so
+  every chunk agrees. `distribution` covers the families the profiler fits
+  (plus poisson and nbinom) with SciPy parameter order. `boundary` draws
+  uniformly from listed points. `text_pool` values are at most 1,000
+  characters and `generation.text_pool_max_values` (500) in number.
+- 2026-11-11 (M5): `semantic` pools are built per kind with Faker
+  (`generation.faker_locale`, `semantic_pool_size` values) seeded from the spec
+  seed and the kind; Faker never reads the clock (birth dates fall in
+  `generation.birth_dates`). The baseline picks a kind for a sensitive column
+  from its profiled format (email, phone, card number) or the words in its
+  name (first/last/full name, birth date, city, postcode, street, company);
+  otherwise masks. Declared-unique sensitive text stays on masks (with a Luhn
+  digit for card numbers) until T5.5 adds counters. This ends the M2
+  limitation: names are names and `date_of_birth` is a valid date.
+- 2026-11-11 (M5): Columns are generated in dependency order; an overlay may
+  read its own column's baseline value (`amount * 3`), and baseline columns
+  computed from an overridden column are recomputed on the overlay's rows.
+  Override cycles are an overlay error. `generate_dataset` now takes the
+  `GenerationSettings`. The spec format version is 2.
+- 2026-11-11 (M5): A14 screening of text-pool values against source values of
+  sensitive columns needs a lookup the connector does not offer yet; it moves
+  to T6.4 with the privacy family.
+- 2026-11-11 (M5): The recorded Groq replay (`tests/fixtures/llm/live_finance`)
+  gained two hand-written overlays, marked as such in its README: M5 made
+  `boundary_transactions_amount` and `volume_skew_transactions_merchant`
+  expressible, and the recording never asked the model for them.
 
 ## 4. Milestones
 
@@ -542,7 +580,7 @@ confirmed or corrected it moves to section 3.
   - [x] T5.1 Expression grammar: `spec/expressions.py` (tokenizer, parser,
     vectorised evaluator; arithmetic, comparisons, if/else, min, max, round,
     date add/diff, concat, column refs). Tests incl. rejected input.
-  - [ ] T5.2 Remaining generators: `engine/generators/` (distribution,
+  - [x] T5.2 Remaining generators: `engine/generators/` (distribution,
     conditional, boundary, derived, pattern with check digit, semantic via
     seeded Faker pools, text_pool, FK Zipf/weighted/shared group). Tests.
   - [ ] T5.3 Gaussian copula: `engine/copula.py`; nearest-PSD repair in

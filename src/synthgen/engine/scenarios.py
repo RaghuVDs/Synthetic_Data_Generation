@@ -14,7 +14,7 @@ from numpy.typing import NDArray
 
 from synthgen.domain.errors import EngineError
 from synthgen.engine.generators import Values
-from synthgen.engine.keys import entity_hash
+from synthgen.engine.hashing import entity_hash
 from synthgen.spec.models import TYPICAL, ScenarioSpec
 
 ObjectArray = NDArray[np.object_]

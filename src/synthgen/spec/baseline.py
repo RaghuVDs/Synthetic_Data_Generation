@@ -18,6 +18,8 @@ from synthgen.spec.generators import (
     ForeignKeyGen,
     Generator,
     PatternGen,
+    SemanticGen,
+    SemanticKind,
     SequenceGen,
     UuidGen,
 )
@@ -34,6 +36,7 @@ from synthgen.spec.models import (
     RowRule,
     TableSpec,
 )
+from synthgen.spec.semantic_kinds import K, semantic_kind
 
 PATTERN_OTHER_SHARE = 0.5
 """Text columns whose stored frequencies miss more than this share are generated from masks."""
@@ -119,7 +122,11 @@ def _column(
     meta: ColumnMeta, column: ColumnProfile, key: Relationship | None, *, is_label: bool
 ) -> ColumnSpec:
     sensitive = column.sensitivity is Sensitivity.SENSITIVE
-    column_type = ColumnType.TEXT if sensitive else _TYPES[column.inferred_type]
+    column_type = _TYPES[column.inferred_type]
+    if sensitive and not (
+        column_type is ColumnType.DATE and _sensitive_kind(meta, column) is K.DATE_OF_BIRTH
+    ):
+        column_type = ColumnType.TEXT
     return ColumnSpec(
         name=meta.name,
         type=column_type,
@@ -145,13 +152,20 @@ def _generator(  # noqa: PLR0911 - one branch per kind of column
             parent_table=key.parent_table,
             parent_column=key.parent_column,
             distribution="uniform",
+            exponent=None,
+            hot_keys=None,
+            hot_share=None,
+            group_size=None,
         )
     if is_label and column.top_value is not None:
         return ConstantGen(type="constant", value=column.top_value.value)
-    if column.sensitivity is Sensitivity.SENSITIVE or column.inferred_type is InferredType.EMPTY:
-        return _pattern(column)
     if meta.unique and column.inferred_type is InferredType.TEXT:
         return _pattern(column)  # observed values cannot stay unique once more rows are asked for
+    if column.sensitivity is Sensitivity.SENSITIVE:
+        kind = _sensitive_kind(meta, column)
+        return SemanticGen(type="semantic", kind=kind) if kind else _pattern(column)
+    if column.inferred_type is InferredType.EMPTY:
+        return _pattern(column)
     if column.numeric is not None:
         decimals = (
             0
@@ -171,12 +185,22 @@ def _normalised(weights: list[float]) -> list[float]:
     return [w / total for w in weights] if total else [1.0 / len(weights)] * len(weights)
 
 
+def _sensitive_kind(meta: ColumnMeta, column: ColumnProfile) -> SemanticKind | None:
+    if column.sensitivity is not Sensitivity.SENSITIVE:
+        return None
+    return semantic_kind(meta.name, column.semantic_type)
+
+
 def _pattern(column: ColumnProfile) -> Generator:
     masks = column.text.masks.value if column.text else []
     if not masks:
         return ConstantGen(type="constant", value=None)
+    luhn = column.semantic_type == "card_number" and all("9" in m.mask for m in masks)
     return PatternGen(
-        type="pattern", masks=[m.mask for m in masks], weights=_normalised([m.share for m in masks])
+        type="pattern",
+        masks=[m.mask for m in masks],
+        weights=_normalised([m.share for m in masks]),
+        check_digit="luhn" if luhn else None,
     )
 
 

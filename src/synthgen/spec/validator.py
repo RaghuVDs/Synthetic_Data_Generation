@@ -9,26 +9,18 @@ from __future__ import annotations
 from typing import Literal
 
 from synthgen.config import GenerationSettings
-from synthgen.spec.generators import Generator
+from synthgen.domain.errors import ExpressionError
+from synthgen.spec.checks import GeneratorChecker
+from synthgen.spec.dependencies import generation_order
 from synthgen.spec.models import (
     ColumnOverride,
-    ColumnSpec,
-    ColumnType,
     GenerationSpec,
+    ScenarioSpec,
     SpecError,
     TableSpec,
 )
 
 SHARE_TOLERANCE = 1e-9
-_NUMERIC = (ColumnType.INTEGER, ColumnType.FLOAT, ColumnType.BOOLEAN)
-_SUITS: dict[str, tuple[ColumnType, ...]] = {
-    "sequence": (ColumnType.INTEGER,),
-    "uuid": (ColumnType.TEXT,),
-    "empirical": _NUMERIC,
-    "datetime": (ColumnType.DATE, ColumnType.DATETIME),
-    "pattern": (ColumnType.TEXT,),
-}
-_SENSITIVE_OK = ("pattern", "constant")
 Origin = Literal["baseline", "overlay"]
 
 
@@ -36,10 +28,11 @@ def validate_spec(spec: GenerationSpec, settings: GenerationSettings) -> list[Sp
     """Every problem found; an empty list means the spec may run."""
     errors: list[SpecError] = []
     seen: list[str] = []
+    checker = GeneratorChecker(spec, settings)
     for i, table in enumerate(spec.tables):
-        errors += _table_errors(spec, table, f"/tables/{i}", seen, settings)
+        errors += _table_errors(checker, table, f"/tables/{i}", seen, settings)
         seen.append(table.name)
-    errors += _scenario_errors(spec)
+    errors += _scenario_errors(spec, checker)
     return errors
 
 
@@ -48,7 +41,7 @@ def _error(origin: Origin, path: str, message: str, scenario: str | None = None)
 
 
 def _table_errors(
-    spec: GenerationSpec,
+    checker: GeneratorChecker,
     table: TableSpec,
     path: str,
     earlier: list[str],
@@ -68,36 +61,17 @@ def _table_errors(
             _error("baseline", f"{path}/row_rule", f"parent {rule.parent_table} is not earlier")
         )
     for j, column in enumerate(table.columns):
-        problem = _generator_problem(spec, column, column.generator, earlier)
+        problem = checker.problem(table, column, column.generator, earlier)
         if problem:
             errors.append(_error("baseline", f"{path}/columns/{j}/generator", problem))
+    try:
+        generation_order(table.columns)
+    except ExpressionError as error:
+        errors.append(_error("baseline", f"{path}/columns", str(error)))
     return errors
 
 
-def _generator_problem(
-    spec: GenerationSpec, column: ColumnSpec, gen: Generator, earlier: list[str]
-) -> str | None:
-    """Why this generator cannot fill this column, or None when it can."""
-    allowed = _SUITS.get(gen.type)
-    if allowed is not None and column.type not in allowed:
-        return f"{gen.type} generator does not suit {column.type} column {column.name}"
-    if column.sensitive and gen.type not in _SENSITIVE_OK and not column.primary_key:
-        return f"sensitive column {column.name} must use a pattern generator"
-    if gen.type == "datetime" and (gen.granularity == "datetime") != (
-        column.type is ColumnType.DATETIME
-    ):
-        return f"datetime granularity {gen.granularity} does not suit {column.type} column"
-    if gen.type == "foreign_key":
-        parent = spec.table(gen.parent_table)
-        if gen.parent_table not in earlier or parent is None:
-            return f"foreign key to {gen.parent_table}, which is not generated earlier"
-        key = parent.column(gen.parent_column)
-        if key is None or not (key.primary_key or key.unique):
-            return f"foreign key target {gen.parent_table}.{gen.parent_column} is not a unique key"
-    return None
-
-
-def _scenario_errors(spec: GenerationSpec) -> list[SpecError]:
+def _scenario_errors(spec: GenerationSpec, checker: GeneratorChecker) -> list[SpecError]:
     errors: list[SpecError] = []
     names = [s.name for s in spec.scenarios]
     if len(set(names)) != len(names):
@@ -118,24 +92,42 @@ def _scenario_errors(spec: GenerationSpec) -> list[SpecError]:
             for j, label in enumerate(scenario.labels)
         ]
         problems += [
-            (f"{path}/overrides/{j}", _override_problem(spec, override))
+            (f"{path}/overrides/{j}", _override_problem(spec, checker, override))
             for j, override in enumerate(scenario.overrides)
         ]
+        problems.append((f"{path}/overrides", _override_cycle(spec, scenario)))
         errors += [_error("overlay", at, p, scenario.name) for at, p in problems if p]
     return errors
 
 
-def _override_problem(spec: GenerationSpec, override: ColumnOverride) -> str | None:
+def _override_cycle(spec: GenerationSpec, scenario: ScenarioSpec) -> str | None:
+    """Overrides of one table may read each other, but not in a cycle."""
+    for table in spec.tables:
+        found = {o.column: o.generator for o in scenario.overrides if o.table == table.name}
+        replaced = [
+            c.model_copy(update={"generator": found[c.name]})
+            for c in table.columns
+            if c.name in found
+        ]
+        given = {c.name for c in table.columns} - set(found)
+        try:
+            generation_order(replaced, given, overlay=True)
+        except ExpressionError as error:
+            return str(error)
+    return None
+
+
+def _override_problem(
+    spec: GenerationSpec, checker: GeneratorChecker, override: ColumnOverride
+) -> str | None:
     """Why an override cannot apply, or None when it can."""
     missing = _missing(spec, override.table, override.column)
     table = spec.table(override.table)
     column = table.column(override.column) if table else None
-    if missing or column is None:
+    if missing or table is None or column is None:
         return missing
     order = [t.name for t in spec.tables]
-    return _generator_problem(
-        spec, column, override.generator, order[: order.index(override.table)]
-    )
+    return checker.problem(table, column, override.generator, order[: order.index(table.name)])
 
 
 def _missing(spec: GenerationSpec, table: str, column: str) -> str | None:

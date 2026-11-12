@@ -4,7 +4,8 @@ import numpy as np
 import pytest
 
 from synthgen.domain.errors import EngineError
-from synthgen.engine.keys import children_per_parent, entity_hash, expected_children
+from synthgen.engine.hashing import entity_hash
+from synthgen.engine.keys import children_per_parent, expected_children
 from synthgen.engine.scenarios import assign_scenarios, categories, scenario_counts
 from synthgen.spec.models import TYPICAL, ChildCount, PerParentRows, ScenarioSpec
 

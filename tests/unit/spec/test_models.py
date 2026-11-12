@@ -62,7 +62,7 @@ def test_spec_round_trip_and_stable_hash() -> None:
         {"type": "categorical", "values": ["a", "b"], "weights": [1.5, -0.5]},
         {"type": "empirical", "quantiles": [3.0, 1.0], "decimals": 0},
         {"type": "empirical", "quantiles": [1.0], "decimals": 0},
-        {"type": "pattern", "masks": ["AA"], "weights": [0.9]},
+        {"type": "pattern", "masks": ["AA"], "weights": [0.9], "check_digit": None},
         {"type": "sequence", "start": 1, "step": 0},
         {
             "type": "datetime",

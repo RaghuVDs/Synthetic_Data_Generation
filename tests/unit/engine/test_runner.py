@@ -9,9 +9,13 @@ import pyarrow.compute as pc
 import pyarrow.parquet as pq
 import pytest
 
+from synthgen.config import load_settings
 from synthgen.engine.runner import RunOptions, generate_dataset
 from synthgen.engine.writer import read_manifest
 from synthgen.spec.models import GenerationSpec
+
+ROOT = Path(__file__).resolve().parents[3]
+GENERATION = load_settings(ROOT / "config" / "settings.yaml", {}).generation
 
 
 def _col(name: str, ctype: str, generator: dict[str, Any], **extra: Any) -> dict[str, Any]:
@@ -49,7 +53,12 @@ def make_spec(
                         _col(
                             "code",
                             "text",
-                            {"type": "pattern", "masks": ["AAA-9999"], "weights": [1.0]},
+                            {
+                                "type": "pattern",
+                                "masks": ["AAA-9999"],
+                                "weights": [1.0],
+                                "check_digit": None,
+                            },
                             unique=True,
                         ),
                         _col(
@@ -86,6 +95,10 @@ def make_spec(
                                 "parent_table": "customers",
                                 "parent_column": "id",
                                 "distribution": "uniform",
+                                "exponent": None,
+                                "hot_keys": None,
+                                "hot_share": None,
+                                "group_size": None,
                             },
                         ),
                         _col(
@@ -126,15 +139,15 @@ def _digest(path: Path) -> str:
 
 def test_rerun_is_byte_identical(tmp_path: Path) -> None:
     spec = make_spec(scenarios=[BIG])
-    generate_dataset(spec, tmp_path / "a", RunOptions())
-    generate_dataset(spec, tmp_path / "b", RunOptions())
+    generate_dataset(spec, tmp_path / "a", RunOptions(), GENERATION)
+    generate_dataset(spec, tmp_path / "b", RunOptions(), GENERATION)
     for table in ("customers", "orders"):
         part = Path("data") / table / "part-00000.parquet"
         assert _digest(tmp_path / "a" / part) == _digest(tmp_path / "b" / part)
 
 
 def test_rows_keys_and_nulls(tmp_path: Path) -> None:
-    manifest = generate_dataset(make_spec(), tmp_path, RunOptions())
+    manifest = generate_dataset(make_spec(), tmp_path, RunOptions(), GENERATION)
     customers = pq.read_table(tmp_path / "data" / "customers")
     orders = pq.read_table(tmp_path / "data" / "orders")
     assert customers.num_rows == 200
@@ -147,7 +160,7 @@ def test_rows_keys_and_nulls(tmp_path: Path) -> None:
 
 
 def test_scenarios_are_assigned_inherited_and_overlaid(tmp_path: Path) -> None:
-    manifest = generate_dataset(make_spec(scenarios=[BIG]), tmp_path, RunOptions())
+    manifest = generate_dataset(make_spec(scenarios=[BIG]), tmp_path, RunOptions(), GENERATION)
     customers = pq.read_table(tmp_path / "data" / "customers")
     orders = pq.read_table(tmp_path / "data" / "orders")
     assert customers.column("_scenario").to_pylist().count("big") == 20
@@ -168,14 +181,59 @@ def test_scenarios_are_assigned_inherited_and_overlaid(tmp_path: Path) -> None:
 
 
 def test_dry_run_caps_root_rows(tmp_path: Path) -> None:
-    manifest = generate_dataset(make_spec(customers=10_000), tmp_path, RunOptions(max_root_rows=50))
+    manifest = generate_dataset(
+        make_spec(customers=10_000), tmp_path, RunOptions(max_root_rows=50), GENERATION
+    )
     assert [t.rows for t in manifest.tables] == [50, 100]
 
 
 @pytest.mark.parametrize("customers", [1, 3])
 def test_tiny_runs_still_carry_every_scenario(tmp_path: Path, customers: int) -> None:
     manifest = generate_dataset(
-        make_spec(customers=customers, scenarios=[BIG]), tmp_path, RunOptions()
+        make_spec(customers=customers, scenarios=[BIG]), tmp_path, RunOptions(), GENERATION
     )
     counts = {c.scenario: c.rows for c in manifest.tables[0].scenario_counts}
     assert counts["big"] == 1
+
+
+def _with_columns(spec: GenerationSpec, table: int, *columns: dict[str, Any]) -> GenerationSpec:
+    data = spec.model_dump()
+    data["tables"][table]["columns"] += list(columns)
+    return GenerationSpec.model_validate(data)
+
+
+def test_derived_columns_read_own_and_parent_columns(tmp_path: Path) -> None:
+    spec = _with_columns(
+        make_spec(scenarios=[BIG]),
+        1,
+        _col("total", "float", {"type": "derived", "expression": "round(amount * 2, 2)"}),
+        _col("tier", "text", {"type": "derived", "expression": "concat(customers.code, '/', id)"}),
+    )
+    generate_dataset(spec, tmp_path, RunOptions(), GENERATION)
+    orders = pq.read_table(tmp_path / "data" / "orders" / "part-00000.parquet").to_pylist()
+    customers = {
+        r["id"]: r["code"]
+        for r in pq.read_table(tmp_path / "data" / "customers" / "part-00000.parquet").to_pylist()
+    }
+    assert all(r["total"] == pytest.approx(round(r["amount"] * 2, 2)) for r in orders)
+    assert all(r["tier"] == f"{customers[r['customer_id']]}/{r['id']}" for r in orders)
+    big = [r for r in orders if r["_scenario"] == "big"]
+    assert big and all(r["amount"] >= 1_000 for r in big)
+    assert all(r["total"] >= 2_000 for r in big)  # recomputed after the overlay
+
+
+def test_overrides_may_read_their_own_baseline_value(tmp_path: Path) -> None:
+    scenario = {
+        **BIG,
+        "overrides": [
+            {
+                "table": "orders",
+                "column": "amount",
+                "generator": {"type": "derived", "expression": "amount + 10000"},
+            }
+        ],
+    }
+    generate_dataset(make_spec(scenarios=[scenario]), tmp_path, RunOptions(), GENERATION)
+    orders = pq.read_table(tmp_path / "data" / "orders" / "part-00000.parquet").to_pylist()
+    assert all(r["amount"] > 10_000 for r in orders if r["_scenario"] == "big")
+    assert all(r["amount"] <= 100 for r in orders if r["_scenario"] == "typical")

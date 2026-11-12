@@ -93,7 +93,7 @@ def _gen(spec: GenerationSpec, table: str, column: str) -> dict[str, Any]:
 def test_baseline_generators(baseline: GenerationSpec) -> None:
     assert [t.name for t in baseline.tables] == ["customers", "orders"]
     assert _gen(baseline, "customers", "id")["type"] == "sequence"
-    assert _gen(baseline, "customers", "email")["type"] == "pattern"
+    assert _gen(baseline, "customers", "email") == {"type": "semantic", "kind": "email"}
     tier = _gen(baseline, "customers", "tier")
     assert tier["type"] == "categorical"
     assert set(tier["values"]) == {"gold", "silver", "bronze"}
@@ -181,7 +181,12 @@ def test_valid_overlay_has_no_errors(
                     {
                         "table": "orders",
                         "column": "placed",
-                        "generator": {"type": "pattern", "masks": ["A"], "weights": [1.0]},
+                        "generator": {
+                            "type": "pattern",
+                            "masks": ["A"],
+                            "weights": [1.0],
+                            "check_digit": None,
+                        },
                     }
                 ]
             },

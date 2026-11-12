@@ -7,6 +7,7 @@ The environment is passed in as a mapping so loading stays explicit and testable
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import date
 from pathlib import Path
 from typing import Literal
 
@@ -114,6 +115,9 @@ class GenerationSettings(_Group):
     chunk_retries: int = Field(ge=0)
     text_pool_max_values: int = Field(ge=1)
     workers: int = Field(ge=1)
+    semantic_pool_size: int = Field(ge=1)
+    faker_locale: str
+    birth_dates: tuple[date, date]
 
 
 class LoopCaps(_Group):

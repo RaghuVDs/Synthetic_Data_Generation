@@ -10,9 +10,10 @@ from pydantic import Field
 
 from synthgen.domain.base import StrictModel
 from synthgen.domain.plan import ScenarioCategory, ScenarioUnit
+from synthgen.spec.expressions import ExprType
 from synthgen.spec.generators import Generator, Scalar
 
-SPEC_FORMAT_VERSION = 1
+SPEC_FORMAT_VERSION = 2
 TYPICAL = "typical"
 """`_scenario` and `_category` value of rows no scenario touched."""
 
@@ -26,6 +27,17 @@ class ColumnType(StrEnum):
     TEXT = "text"
     DATE = "date"
     DATETIME = "datetime"
+
+
+EXPR_TYPES = {
+    ColumnType.INTEGER: ExprType.NUMBER,
+    ColumnType.FLOAT: ExprType.NUMBER,
+    ColumnType.BOOLEAN: ExprType.NUMBER,
+    ColumnType.TEXT: ExprType.TEXT,
+    ColumnType.DATE: ExprType.DATE,
+    ColumnType.DATETIME: ExprType.DATETIME,
+}
+"""How expressions see each column type; booleans are stored as 0 and 1, so they are numbers."""
 
 
 class ColumnSpec(StrictModel):

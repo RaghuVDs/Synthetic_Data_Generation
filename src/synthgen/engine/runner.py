@@ -9,18 +9,20 @@ from __future__ import annotations
 import logging
 import shutil
 from collections import Counter
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pyarrow as pa
+from numpy.typing import NDArray
 
+from synthgen.config import GenerationSettings
 from synthgen.domain.errors import EngineError
-from synthgen.engine.generators import GenContext, Values, generate
+from synthgen.engine.columns import TableDraw, apply_overlays, draw_columns
+from synthgen.engine.generators import GenContext, SemanticPools, Values
 from synthgen.engine.keys import children_per_parent
-from synthgen.engine.scenarios import ObjectArray, assign_scenarios, categories
+from synthgen.engine.scenarios import assign_scenarios, categories
 from synthgen.engine.writer import (
     DATA_DIR,
     ColumnSchema,
@@ -31,20 +33,20 @@ from synthgen.engine.writer import (
     write_manifest,
     write_part,
 )
-from synthgen.spec.generators import Generator
+from synthgen.spec.dependencies import parent_reads
+from synthgen.spec.evaluator import Column
 from synthgen.spec.models import (
+    EXPR_TYPES,
     TYPICAL,
     ColumnSpec,
     ColumnType,
     GenerationSpec,
-    ScenarioSpec,
     TableSpec,
 )
 
 logger = logging.getLogger(__name__)
 SCENARIO_COLUMN = "_scenario"
 CATEGORY_COLUMN = "_category"
-MAX_UNIQUE_REDRAWS = 20
 ARROW_TYPES = {
     ColumnType.INTEGER: pa.int64(),
     ColumnType.FLOAT: pa.float64(),
@@ -67,13 +69,22 @@ class RunOptions:
         return self.max_root_rows is not None
 
 
-def generate_dataset(spec: GenerationSpec, out_dir: Path, options: RunOptions) -> Manifest:
+def generate_dataset(
+    spec: GenerationSpec, out_dir: Path, options: RunOptions, settings: GenerationSettings
+) -> Manifest:
     """Write all tables, then the manifest. Any earlier output in `out_dir` is replaced."""
     shutil.rmtree(out_dir / DATA_DIR, ignore_errors=True)
     written: dict[str, TableManifest] = {}
+    pools = SemanticPools(
+        spec.seed, settings.semantic_pool_size, settings.faker_locale, settings.birth_dates
+    )
     for index, table in enumerate(spec.tables):
         rng = np.random.default_rng(np.random.SeedSequence(spec.seed, spawn_key=(index, 0)))
-        data = _generate_table(spec, table, rng, _Reader(out_dir, written), options)
+        reader = _Reader(out_dir, written)
+        ctx = GenContext(
+            row_offset=0, seed=spec.seed, parent_keys=reader.column, pools=pools, frame={}
+        )
+        data = _generate_table(spec, table, TableDraw(table, rng, ctx), reader, options)
         file = write_part(out_dir, table.name, 0, data, spec.output.compression)
         written[table.name] = _table_manifest(table.name, data, [file])
         logger.info("generated %s rows of %s", data.num_rows, table.name)
@@ -104,35 +115,25 @@ class _Reader:
 def _generate_table(
     spec: GenerationSpec,
     table: TableSpec,
-    rng: np.random.Generator,
+    draw: TableDraw,
     reader: _Reader,
     options: RunOptions,
 ) -> pa.Table:
-    n, parent_rows = _row_plan(table, rng, reader, options)
+    n, parent_rows = _row_plan(table, draw.rng, reader, options)
     inherited = np.full(n, TYPICAL, dtype=object)
-    values: dict[str, Values] = {}
+    fixed: dict[str, Values] = {}
     rule = table.row_rule
-    ctx = GenContext(row_offset=0, parent_keys=reader.column)
-    for column in table.columns:
-        if (
-            rule.kind == "per_parent"
-            and column.name == rule.child_column
-            and parent_rows is not None
-        ):
-            values[column.name] = reader.column(rule.parent_table, rule.parent_column)[parent_rows]
-            inherited = reader.column(rule.parent_table, SCENARIO_COLUMN)[parent_rows].astype(
-                object
-            )
-        else:
-            values[column.name] = _draw(column, n, rng, ctx)
-        values[column.name] = _with_nulls(values[column.name], column, rng)
+    if rule.kind == "per_parent" and parent_rows is not None:
+        fixed[rule.child_column] = reader.column(rule.parent_table, rule.parent_column)[parent_rows]
+        inherited = reader.column(rule.parent_table, SCENARIO_COLUMN)[parent_rows].astype(object)
+        frame = _parent_frame(spec, table, reader, parent_rows)
+        draw = replace(draw, ctx=replace(draw.ctx, frame=frame))
+    values = draw_columns(draw, n, fixed)
     own = [s for s in spec.scenarios if s.entity == table.name]
     key = table.primary_key
     keys = values[key.name] if key else np.arange(n)
     assigned = assign_scenarios(keys, inherited, own, spec.seed)
-    _apply_overlays(
-        spec.scenarios, table.name, values, assigned, lambda gen, k: generate(gen, k, rng, ctx)
-    )
+    apply_overlays(draw, spec.scenarios, values, assigned)
     columns = [pa.array(_cast(values[c.name], c), type=ARROW_TYPES[c.type]) for c in table.columns]
     columns += [
         pa.array(assigned, type=pa.string()),
@@ -141,6 +142,25 @@ def _generate_table(
     return pa.table(
         columns, names=[c.name for c in table.columns] + [SCENARIO_COLUMN, CATEGORY_COLUMN]
     )
+
+
+def _parent_frame(
+    spec: GenerationSpec, table: TableSpec, reader: _Reader, parent_rows: NDArray[np.int64]
+) -> dict[str, Column]:
+    """Driving-parent columns (`parent.column`) that this table's generators or overlays read."""
+    gens = [c.generator for c in table.columns] + [
+        o.generator for s in spec.scenarios for o in s.overrides if o.table == table.name
+    ]
+    frame: dict[str, Column] = {}
+    for name in sorted(set().union(*(parent_reads(g) for g in gens))):
+        parent_name, column_name = name.split(".", 1)
+        parent = spec.table(parent_name)
+        column = parent.column(column_name) if parent else None
+        if column is None:
+            raise EngineError(f"{table.name} reads {name}, which is not a parent column")
+        values = reader.column(parent_name, column_name)[parent_rows]
+        frame[name] = (EXPR_TYPES[column.type], values)
+    return frame
 
 
 def _row_plan(
@@ -155,49 +175,6 @@ def _row_plan(
     counts = children_per_parent(rule, parents, rng, use_target=not options.is_sample)
     parent_rows = np.repeat(np.arange(parents), counts)
     return int(parent_rows.size), parent_rows
-
-
-def _draw(column: ColumnSpec, n: int, rng: np.random.Generator, ctx: GenContext) -> Values:
-    values = generate(column.generator, n, rng, ctx)
-    if not column.unique:
-        return values
-    for _ in range(MAX_UNIQUE_REDRAWS):
-        _, first = np.unique(values.astype(str), return_index=True)
-        repeats = np.setdiff1d(np.arange(n), first)
-        if repeats.size == 0:
-            return values
-        values[repeats] = generate(column.generator, repeats.size, rng, ctx)
-    raise EngineError(f"could not make {column.name} unique")
-
-
-def _with_nulls(values: Values, column: ColumnSpec, rng: np.random.Generator) -> Values:
-    if column.null_rate <= 0 or column.primary_key:
-        return values
-    out = values.astype(object)
-    out[rng.random(values.size) < column.null_rate] = None
-    return out
-
-
-def _apply_overlays(
-    scenarios: Sequence[ScenarioSpec],
-    table: str,
-    values: dict[str, Values],
-    assigned: ObjectArray,
-    draw: Callable[[Generator, int], Values],
-) -> None:
-    """Scenario rows get the overlay's generators and label values; other rows keep the baseline."""
-    for scenario in scenarios:
-        rows = np.flatnonzero(assigned == scenario.name)
-        if rows.size == 0:
-            continue
-        for override in (o for o in scenario.overrides if o.table == table):
-            column = values[override.column].astype(object)
-            column[rows] = draw(override.generator, rows.size)
-            values[override.column] = column
-        for label in (lb for lb in scenario.labels if lb.table == table):
-            column = values[label.column].astype(object)
-            column[rows] = label.value
-            values[label.column] = column
 
 
 def _cast(values: Values, column: ColumnSpec) -> list[Any]:  # Any: Arrow takes mixed Python values

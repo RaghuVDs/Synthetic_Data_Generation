@@ -14,6 +14,6 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
     """Write the full output under the job folder."""
     out = deps.job_dir(state["job_id"])
     spec = load_spec(state, deps)
-    generate_dataset(spec, out, RunOptions())
+    generate_dataset(spec, out, RunOptions(), deps.settings.generation)
     (out / SPEC_FILE).write_text(spec.model_dump_json(indent=2), encoding="utf-8")
     return {}

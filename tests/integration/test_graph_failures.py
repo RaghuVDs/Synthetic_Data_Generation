@@ -36,7 +36,9 @@ def _run(make_app: AppFactory, env: dict[str, str]) -> tuple[str, JobStatus, str
 def test_overlay_errors_stop_at_the_repair_cap(
     make_app: AppFactory, job_env: EnvFactory, tmp_path: Path
 ) -> None:
-    wrong_type = _overlay("opened_date", {"type": "pattern", "masks": ["AAA"], "weights": [1.0]})
+    wrong_type = _overlay(
+        "opened_date", {"type": "pattern", "masks": ["AAA"], "weights": [1.0], "check_digit": None}
+    )
     _, status, error = _run(
         make_app, job_env(fixture_set(tmp_path / "fx", OverlaySet=[(None, wrong_type)]))
     )

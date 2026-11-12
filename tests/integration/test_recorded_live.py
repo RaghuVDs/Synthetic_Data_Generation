@@ -50,4 +50,6 @@ def test_recorded_plan_feasibility(make_app: AppFactory, job_env: EnvFactory) ->
     assert view.pending is not None and view.pending.kind == "approval"
     status = {f.scenario: f.status for f in view.pending.feasibility}
     assert status["large_nighttime_purchases"] is FeasibilityStatus.EXPRESSIBLE
-    assert status["boundary_transactions_amount"] is FeasibilityStatus.NOT_EXPRESSIBLE
+    # Not expressible when recorded; M5's boundary generator and weighted keys cover both now.
+    assert status["boundary_transactions_amount"] is FeasibilityStatus.EXPRESSIBLE
+    assert status["volume_skew_transactions_merchant"] is FeasibilityStatus.EXPRESSIBLE

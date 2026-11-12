@@ -122,6 +122,51 @@
               }
             }
           ]
+        },
+        {
+          "name": "boundary_transactions_amount",
+          "category": "boundary",
+          "share": 0.01,
+          "unit": "entity",
+          "entity": "transactions",
+          "labels": [],
+          "overrides": [
+            {
+              "table": "transactions",
+              "column": "amount",
+              "generator": {
+                "type": "boundary",
+                "points": [
+                  0.39,
+                  11292.22
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "volume_skew_transactions_merchant",
+          "category": "volume_skew",
+          "share": 0.01,
+          "unit": "entity",
+          "entity": "transactions",
+          "labels": [],
+          "overrides": [
+            {
+              "table": "transactions",
+              "column": "merchant_id",
+              "generator": {
+                "type": "foreign_key",
+                "parent_table": "merchants",
+                "parent_column": "merchant_id",
+                "distribution": "weighted",
+                "exponent": null,
+                "hot_keys": 10,
+                "hot_share": 0.85,
+                "group_size": null
+              }
+            }
+          ]
         }
       ]
     }

@@ -75,6 +75,9 @@ generation:
   chunk_retries: 3
   text_pool_max_values: 500
   workers: 1
+  semantic_pool_size: 5000            # fake values per semantic kind (names, emails, ...)
+  faker_locale: en_US
+  birth_dates: ["1940-01-01", "2008-12-31"]   # range of the date_of_birth semantic kind
 
 agent:
   caps:
