@@ -71,6 +71,7 @@ generation:
   default_root_rows: 1000
   max_rows_per_table: 10000000
   chunk_rows: 250000
+  max_cells_per_chunk: 20000000       # rows x columns per chunk; wide tables get shorter chunks
   dry_run_max_root_entities: 5000
   chunk_retries: 3
   text_pool_max_values: 500

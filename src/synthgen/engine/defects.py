@@ -19,7 +19,6 @@ from synthgen.spec.evaluator import to_internal
 from synthgen.spec.expressions import ExprType
 from synthgen.spec.models import ColumnType, ScenarioSpec, TableSpec
 
-DEFECT_COLUMN = "_defect"
 OUT_OF_RANGE_FACTOR = 10.0
 """An out-of-range number is this many times the column's largest absolute value, plus one."""
 FAR_FUTURE = {ColumnType.DATE: "2999-12-31", ColumnType.DATETIME: "2999-12-31 23:59:59"}

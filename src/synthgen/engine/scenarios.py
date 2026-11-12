@@ -1,8 +1,8 @@
 """Scenario assignment and overlays (SPEC 8.5, PLAN A2).
 
-Each scenario gets exactly max(1, round(share x eligible)) entities. Which ones is decided by a
-seeded hash rank of the entity key, so the choice does not depend on chunking or workers.
-Rows already carrying a scenario (inherited from a parent) are not eligible again.
+Each scenario gets exactly max(1, round(share x eligible)) entities per table; the chunk plan
+splits that total over chunks. Inside a chunk the rows are chosen by a seeded hash rank of the
+entity key. Rows already carrying a scenario (inherited from a parent) are not eligible again.
 """
 
 from __future__ import annotations
@@ -29,18 +29,27 @@ def scenario_counts(shares: Sequence[float], eligible: int) -> list[int]:
 
 
 def assign_scenarios(
-    keys: Values, current: ObjectArray, scenarios: Sequence[ScenarioSpec], seed: int
+    keys: Values,
+    current: ObjectArray,
+    scenarios: Sequence[ScenarioSpec],
+    seed: int,
+    counts: Sequence[int],
 ) -> ObjectArray:
-    """Give this table's own scenarios to eligible rows, lowest hash first, in spec order."""
+    """Give `counts[i]` eligible rows to scenario i, lowest hash first, in spec order.
+
+    The counts come from the chunk plan, which splits each scenario's exact total over chunks.
+    """
     result = current.copy()
     if not scenarios:
         return result
     eligible = np.flatnonzero(current == TYPICAL)
+    if sum(counts) > eligible.size:
+        raise EngineError(
+            f"scenarios need {sum(counts)} rows but only {eligible.size} are eligible"
+        )
     ranked = eligible[np.argsort(entity_hash(keys[eligible], seed), kind="stable")]
     start = 0
-    for scenario, count in zip(
-        scenarios, scenario_counts([s.share for s in scenarios], eligible.size), strict=True
-    ):
+    for scenario, count in zip(scenarios, counts, strict=True):
         result[ranked[start : start + count]] = scenario.name
         start += count
     return result

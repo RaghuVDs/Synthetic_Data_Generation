@@ -16,8 +16,7 @@ import numpy as np
 import pyarrow as pa
 
 from synthgen.domain.report import CheckFamily, CheckResult, CheckStatus
-from synthgen.engine.defects import DEFECT_COLUMN
-from synthgen.engine.runner import ARROW_TYPES, SCENARIO_COLUMN
+from synthgen.engine.schema import ARROW_TYPES, DEFECT_COLUMN, SCENARIO_COLUMN
 from synthgen.engine.writer import Manifest, read_table
 from synthgen.spec.models import TYPICAL, ColumnSpec, ColumnType, GenerationSpec, TableSpec
 

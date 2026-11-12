@@ -384,6 +384,20 @@ confirmed or corrected it moves to section 3.
   when the intent has `include_invalid` (`validate_spec(..., allow_defects=)`).
   Integrity checks skip labelled defect rows, and uniqueness is judged among
   clean rows; M6 checks that defect rows really are broken.
+- 2026-11-12 (M5): Chunking. `engine/planning.py` plans a table once its parents
+  are written: root tables get consecutive chunks; a child table draws
+  children per parent for every parent row (stream slot 0 of the table), then
+  cuts chunks at parent boundaries so one family always shares a chunk (a
+  family larger than the limit gets a chunk of its own). The row limit is
+  `chunk_rows`, lowered to `max_cells_per_chunk / columns` for wide tables.
+  Chunk i draws from `SeedSequence(seed, spawn_key=(table, i + 1))`, built
+  directly (identical to `spawn`). Row offsets give disjoint sequence keys and
+  unique counters. Each scenario's exact table total (PLAN A2) is split over
+  chunks by largest remainder in proportion to eligible rows; inside a chunk
+  rows are picked by seeded hash rank. `engine/chunk.py` runs one chunk end to
+  end (parent keys, scenarios and attributes are read for its parent row range
+  from the parent's parts) and writes `part-<i>`; `engine/schema.py` holds the
+  output columns and `engine/reader.py` reads written tables by row range.
 
 ## 4. Milestones
 
@@ -642,7 +656,7 @@ confirmed or corrected it moves to section 3.
     `engine/defects.py` (`_defect`). Tests.
   - [x] T5.6 Primitive coverage: `tests/unit/engine/test_primitives.py` (one
     test per primitive, spec construct → observable effect).
-  - [ ] T5.7 Chunk planning: `engine/planning.py` (sizes, chunks, child chunks
+  - [x] T5.7 Chunk planning: `engine/planning.py` (sizes, chunks, child chunks
     by parent key range, `SeedSequence.spawn`, disjoint key ranges, parent
     attributes from Parquet). Chunk rows also bounded by
     `generation.max_cells_per_chunk` / columns, so 3,000-column tables stay in

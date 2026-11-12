@@ -95,11 +95,13 @@ def test_assignment_is_exact_and_skips_inherited_rows() -> None:
     keys = np.arange(1_000)
     current = np.full(1_000, TYPICAL, dtype=object)
     current[:100] = "inherited"
-    assigned = assign_scenarios(keys, current, [_scenario("a", 0.1), _scenario("b", 0.02)], seed=5)
+    scenarios = [_scenario("a", 0.1), _scenario("b", 0.02)]
+    counts = scenario_counts([0.1, 0.02], 900)
+    assigned = assign_scenarios(keys, current, scenarios, 5, counts)
     assert np.sum(assigned == "a") == 90
     assert np.sum(assigned == "b") == 18
     assert np.all(assigned[:100] == "inherited")
-    again = assign_scenarios(keys, current, [_scenario("a", 0.1), _scenario("b", 0.02)], seed=5)
+    again = assign_scenarios(keys, current, scenarios, 5, counts)
     assert np.array_equal(assigned, again)
 
 
