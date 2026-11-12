@@ -109,6 +109,7 @@ validation:
   scenario_ks_min: 0.30
   privacy_sample_size: 10000
   min_fidelity_rows: 1000             # PLAN Q6: smaller typical samples skip fidelity
+  fidelity_sample_size: 200000        # typical rows per table the distribution checks read
   privacy_identifier_min_ratio: 0.5   # PLAN Q7: exact-match check on identifier-like columns
 
 seed:

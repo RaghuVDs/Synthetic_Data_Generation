@@ -10,11 +10,19 @@ from synthgen.config import ValidationSettings, load_settings
 from synthgen.domain.report import CheckFamily, CheckStatus
 from synthgen.engine.runner import RunOptions, generate_dataset
 from synthgen.engine.writer import part_path
+from synthgen.spec.models import GenerationSpec
+from synthgen.validation.output import ValidationInputs
 from synthgen.validation.report import REPORT_FILE, validate_output
 
 from ..engine.test_runner import BIG, GENERATION, make_spec
 
 ROOT = Path(__file__).resolve().parents[3]
+
+
+def _inputs(
+    spec: GenerationSpec, options: RunOptions, settings: ValidationSettings
+) -> ValidationInputs:
+    return ValidationInputs(spec, options, settings, profiles={}, plan=None, source=None)
 
 
 @pytest.fixture(scope="module")
@@ -33,7 +41,7 @@ def _rewrite(out_dir: Path, table: str, column: str, values: list[object]) -> No
 def test_clean_output_passes(tmp_path: Path, settings: ValidationSettings) -> None:
     spec = make_spec(scenarios=[BIG])
     generate_dataset(spec, tmp_path, RunOptions(), GENERATION)
-    report = validate_output(spec, tmp_path, RunOptions(), settings)
+    report = validate_output(_inputs(spec, RunOptions(), settings), tmp_path)
     assert report.passed, report.failures()
     assert (tmp_path / REPORT_FILE).is_file()
     families = {r.family for r in report.results}
@@ -45,7 +53,7 @@ def test_duplicate_primary_key_fails(tmp_path: Path, settings: ValidationSetting
     generate_dataset(spec, tmp_path, RunOptions(), GENERATION)
     ids = pq.read_table(part_path(tmp_path, "customers", 0)).column("id").to_pylist()
     _rewrite(tmp_path, "customers", "id", [ids[0], *ids[:-1]])
-    failures = validate_output(spec, tmp_path, RunOptions(), settings).failures()
+    failures = validate_output(_inputs(spec, RunOptions(), settings), tmp_path).failures()
     checks = {(f.check, f.table) for f in failures}
     assert ("primary_key_unique", "customers") in checks
     assert ("foreign_key_resolves", "orders") in checks
@@ -62,7 +70,7 @@ def test_failure_in_scenario_rows_is_traced(tmp_path: Path, settings: Validation
         )
     ]
     _rewrite(tmp_path, "orders", "amount", broken)
-    [failure] = validate_output(spec, tmp_path, RunOptions(), settings).failures()
+    [failure] = validate_output(_inputs(spec, RunOptions(), settings), tmp_path).failures()
     assert failure.check == "not_null"
     assert failure.scenario == "big"
 
@@ -74,7 +82,7 @@ def test_failure_in_typical_rows_is_not_traced(
     generate_dataset(spec, tmp_path, RunOptions(), GENERATION)
     codes = pq.read_table(part_path(tmp_path, "customers", 0)).column("code").to_pylist()
     _rewrite(tmp_path, "customers", "code", [codes[1], *codes[1:]])
-    [failure] = validate_output(spec, tmp_path, RunOptions(), settings).failures()
+    [failure] = validate_output(_inputs(spec, RunOptions(), settings), tmp_path).failures()
     assert (failure.check, failure.scenario) == ("unique", None)
 
 
@@ -82,7 +90,7 @@ def test_row_count_failure(tmp_path: Path, settings: ValidationSettings) -> None
     spec = make_spec(customers=100)
     generate_dataset(spec, tmp_path, RunOptions(), GENERATION)
     bigger = make_spec(customers=150)
-    report = validate_output(bigger, tmp_path, RunOptions(), settings)
+    report = validate_output(_inputs(bigger, RunOptions(), settings), tmp_path)
     failures = [f for f in report.failures() if f.check == "row_count"]
     assert [f.table for f in failures] == ["customers"]
     assert failures[0].status is CheckStatus.FAIL
@@ -92,4 +100,4 @@ def test_dry_run_targets_use_the_cap(tmp_path: Path, settings: ValidationSetting
     spec = make_spec(customers=10_000)
     options = RunOptions(max_root_rows=40)
     generate_dataset(spec, tmp_path, options, GENERATION)
-    assert validate_output(spec, tmp_path, options, settings).passed
+    assert validate_output(_inputs(spec, options, settings), tmp_path).passed

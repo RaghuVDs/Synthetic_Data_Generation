@@ -160,6 +160,7 @@ class ValidationSettings(_Group):
     scenario_ks_min: float = Ratio
     privacy_sample_size: int = Field(ge=1)
     min_fidelity_rows: int = Field(ge=1)
+    fidelity_sample_size: int = Field(ge=1)
     privacy_identifier_min_ratio: float = Ratio
 
 

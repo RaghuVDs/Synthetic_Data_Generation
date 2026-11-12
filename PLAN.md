@@ -416,6 +416,26 @@ confirmed or corrected it moves to section 3.
   parent-date orders, a range constraint, a card-testing sequence and two
   override scenarios; transactions have a target of exactly 1,000,000 rows.
   The slow test runs it with 2 workers and again with 1, and compares bytes.
+- 2026-11-12 (M6): Fidelity reads typical rows (no scenario, no defect), at most
+  `validation.fidelity_sample_size` per table with a fixed seed, one column at a
+  time (wide tables never load whole). Wasserstein/IQR compares quantile
+  functions with the stored quantiles interpolated linearly (what the generator
+  samples); as point masses the grid misplaces tail mass, and the finance
+  source failed against its own profile (0.195). Checks per column: null-rate
+  difference (all non-key columns), KS and W/IQR (numbers with quantile-type
+  generators), category JS (categorical generators, unseen values as one extra
+  bucket), month/weekday/hour JS (datetime generators). Per table: largest
+  Spearman gap over the copula columns, and children-per-parent KS over
+  typical parents (skipped when a row target rescales them). Validation needs
+  the profiles; the nodes load them.
+- 2026-11-12 (M6): Arrow returns NaN for null floats; validation maps nulls to
+  None. A parent-side order repair now moves dates by whole days, because the
+  plain reflection mirrored the hour of day (hour-mix JS 0.33 on transactions).
+- 2026-11-12 (M6): Refines Q6 to both sides. A distribution check is also
+  skipped when the profile behind it rests on fewer than `min_fidelity_rows`
+  source rows (`sample_rows`, the pairwise sample, or the profiled parents):
+  at 2% seed scale a 12-bin month mix of ~600 source rows differs from a fresh
+  sample by about 0.12 through noise alone.
 
 ## 4. Milestones
 
@@ -692,7 +712,7 @@ confirmed or corrected it moves to section 3.
 - **Goal:** all four validation families, the report, and a working repair loop.
 - **Spec sections:** 8.6, 3.3, 5 (patch allow-list), 10.
 - **Tasks:**
-  - [ ] T6.1 Fidelity complete: `validation/fidelity.py` (KS, Wasserstein/IQR,
+  - [x] T6.1 Fidelity complete: `validation/fidelity.py` (KS, Wasserstein/IQR,
     JS category, null diff, Spearman diff, temporal JS, children-per-parent
     KS, row count; typical rows only; small-sample rule per Q6). Validation
     reads Parquet in column batches for wide tables. Tests.

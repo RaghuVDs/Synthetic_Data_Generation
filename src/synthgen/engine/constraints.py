@@ -1,7 +1,8 @@
 """Enforce a table's constraints on drawn values (SPEC 8.5, after derived columns, before nulls).
 
 order: rows where lower > upper swap the two values (both columns keep their values as a set);
-when `lower` is a parent column, upper is reflected above it instead. range: values are clipped.
+when `lower` is a parent column, upper is reflected above it instead (by whole days for dates, so
+a time of day is kept). range: values are clipped.
 unique: rows repeating an earlier combination redraw the last listed column. expression: rows
 where it is false redraw the free columns it reads. A constraint still broken after
 `MAX_REDRAWS` rounds is an engine error.
@@ -27,7 +28,9 @@ from synthgen.spec.evaluator import Column, evaluate, to_internal, to_output
 from synthgen.spec.expressions import ExprType, parse, references
 
 MAX_REDRAWS = 20
+SECONDS_PER_DAY = 86_400
 Rows = NDArray[np.int64]
+Floats = NDArray[np.float64]
 Redraw = Callable[[str, Rows], None]
 """Draws fresh values for one column on some rows, in place."""
 
@@ -69,13 +72,21 @@ def _order(
         return
     fixed = upper.copy()
     if rule.lower in parents:
-        fixed[broken] = 2 * lower[broken] - upper[broken]
+        fixed[broken] = _reflect(lower[broken], upper[broken], kind)
     else:
         fixed[broken] = lower[broken]
         swapped = lower.copy()
         swapped[broken] = upper[broken]
         values[rule.lower] = _back(values[rule.lower], swapped, types[rule.lower], broken)
     values[rule.upper] = _back(values[rule.upper], fixed, kind, broken)
+
+
+def _reflect(lower: NDArray[np.float64], upper: NDArray[np.float64], kind: ExprType) -> Floats:
+    """Mirror `upper` above `lower`. Times move by whole days so the time of day is kept."""
+    if kind not in (ExprType.DATE, ExprType.DATETIME):
+        return 2 * lower - upper
+    days = np.ceil(2 * (lower - upper) / SECONDS_PER_DAY)
+    return np.asarray(upper + days * SECONDS_PER_DAY, dtype=np.float64)
 
 
 def _back(original: Values, internal: NDArray[np.float64], kind: ExprType, rows: Rows) -> Values:
