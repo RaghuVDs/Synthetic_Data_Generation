@@ -640,7 +640,7 @@ confirmed or corrected it moves to section 3.
   - [x] T5.4 Sequences and state paths: `engine/sequences.py`. Tests.
   - [x] T5.5 Constraints, nulls, defects: `engine/constraints.py`,
     `engine/defects.py` (`_defect`). Tests.
-  - [ ] T5.6 Primitive coverage: `tests/unit/engine/test_primitives.py` (one
+  - [x] T5.6 Primitive coverage: `tests/unit/engine/test_primitives.py` (one
     test per primitive, spec construct → observable effect).
   - [ ] T5.7 Chunk planning: `engine/planning.py` (sizes, chunks, child chunks
     by parent key range, `SeedSequence.spawn`, disjoint key ranges, parent
