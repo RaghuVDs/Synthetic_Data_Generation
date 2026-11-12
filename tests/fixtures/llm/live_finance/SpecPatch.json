@@ -2,9 +2,40 @@
   {
     "match": null,
     "response": {
-      "patches": [],
-      "plan_change_required": true,
-      "explanation": "Not recorded: the live run needed no repair."
+      "patches": [
+        {
+          "path": "/scenarios/0/overrides/1/generator/start",
+          "value_json": "\"2025-07-01T00:00:00\"",
+          "reason": "start after the last card issue date so events never precede their card"
+        },
+        {
+          "path": "/scenarios/0/overrides/1/generator/end",
+          "value_json": "\"2025-07-01T00:30:00\"",
+          "reason": "keep the window length"
+        },
+        {
+          "path": "/scenarios/1/overrides/1/generator/start",
+          "value_json": "\"2025-07-01T00:00:00\"",
+          "reason": "start after the last card issue date so events never precede their card"
+        },
+        {
+          "path": "/scenarios/1/overrides/1/generator/end",
+          "value_json": "\"2025-07-01T05:59:59\"",
+          "reason": "keep the window length"
+        },
+        {
+          "path": "/scenarios/2/overrides/1/generator/start",
+          "value_json": "\"2025-07-01T09:00:00\"",
+          "reason": "start after the last card issue date so events never precede their card"
+        },
+        {
+          "path": "/scenarios/2/overrides/1/generator/end",
+          "value_json": "\"2025-07-01T17:59:59\"",
+          "reason": "keep the window length"
+        }
+      ],
+      "plan_change_required": false,
+      "explanation": "The overlays placed transactions before their cards were issued; their time windows move after the last issue date."
     }
   }
 ]

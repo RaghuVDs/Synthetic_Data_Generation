@@ -29,6 +29,8 @@ def _apply(constraints: list[dict[str, Any]], values: dict[str, Any], **kw: Any)
 
     def redraw(name: str, rows: Any) -> None:
         redraws.append((name, rows.tolist()))
+        if kw.get("frozen"):
+            return  # a column the engine may not redraw (a key or a computed column)
         updated = arrays[name].copy()
         updated[rows] = kw.get("fresh", 0)
         arrays[name] = updated
@@ -46,15 +48,37 @@ def test_order_swaps_broken_rows() -> None:
     assert out["b"] == [2.0, 5.0, 1.0]
 
 
-def test_order_against_a_parent_reflects_the_child() -> None:
+def test_order_against_a_parent_redraws_the_child() -> None:
     parents = {"p.opened": (D, np.array(["2024-01-10", "2024-01-10"], dtype=object))}
     out = _apply(
         [{"kind": "order", "lower": "p.opened", "upper": "d"}],
         {"d": ["2024-01-05", "2024-01-20"]},
         types={"d": D},
         parents=parents,
+        fresh="2024-03-01",
     )
-    assert out["d"] == ["2024-01-15", "2024-01-20"]
+    assert out["d"] == ["2024-03-01", "2024-01-20"]
+    assert out["redraws"] == [("d", [0])]
+
+
+def test_order_against_a_parent_lifts_what_cannot_be_redrawn() -> None:
+    parents = {"p.opened": (D, np.array(["2024-01-10", "2024-01-10"], dtype=object))}
+    out = _apply(
+        [{"kind": "order", "lower": "p.opened", "upper": "d"}],
+        {"d": ["2024-01-05", "2024-01-20"]},
+        types={"d": D},
+        parents=parents,
+        frozen=True,
+    )
+    assert out["d"] == ["2024-01-10", "2024-01-20"]
+    stamps = _apply(
+        [{"kind": "order", "lower": "p.opened", "upper": "t"}],
+        {"t": ["2024-01-05 08:30:00"]},
+        types={"t": ExprType.DATETIME},
+        parents={"p.opened": (ExprType.DATETIME, np.array(["2024-01-10 12:00:00"], dtype=object))},
+        frozen=True,
+    )
+    assert stamps["t"] == ["2024-01-11 08:30:00"]
 
 
 def test_range_clips_numbers_and_dates() -> None:
@@ -149,3 +173,31 @@ def test_constraint_problems_are_baseline_errors(constraint: dict[str, Any], fra
         return
     assert [e.origin for e in errors] == ["baseline"]
     assert fragment in errors[0].message
+
+
+def test_interacting_constraints_settle() -> None:
+    parents = {"p.opened": (D, np.array(["2024-01-10", "2024-01-10"], dtype=object))}
+    out = _apply(
+        [
+            {"kind": "order", "lower": "issued", "upper": "expiry"},
+            {"kind": "order", "lower": "p.opened", "upper": "issued"},
+        ],
+        {"issued": ["2024-01-01", "2024-02-01"], "expiry": ["2024-01-12", "2024-03-01"]},
+        types={"issued": D, "expiry": D},
+        parents=parents,
+        frozen=True,
+    )
+    issued, expiry = out["issued"], out["expiry"]
+    assert all("2024-01-10" <= i <= e for i, e in zip(issued, expiry, strict=True))
+
+
+def test_contradictory_constraints_fail() -> None:
+    with pytest.raises(EngineError, match="contradict"):
+        _apply(
+            [
+                {"kind": "range", "column": "a", "minimum": 5.0, "maximum": None},
+                {"kind": "range", "column": "b", "minimum": None, "maximum": 1.0},
+                {"kind": "order", "lower": "a", "upper": "b"},
+            ],
+            {"a": [6.0], "b": [0.0]},
+        )

@@ -429,13 +429,31 @@ confirmed or corrected it moves to section 3.
   typical parents (skipped when a row target rescales them). Validation needs
   the profiles; the nodes load them.
 - 2026-11-12 (M6): Arrow returns NaN for null floats; validation maps nulls to
-  None. A parent-side order repair now moves dates by whole days, because the
-  plain reflection mirrored the hour of day (hour-mix JS 0.33 on transactions).
+  None. A parent-side order repair now redraws the child from its own generator
+  (up to 20 rounds), then lifts rows that still break to the first value at or
+  after the parent, keeping the time of day. The M5 reflection mirrored the hour
+  of day (hour-mix JS 0.33 on transactions) and pushed dates years past the
+  source range (cards issued in 2034). Constraint passes now repeat until a
+  pass changes nothing, since a parent-date repair can undo an earlier order
+  between two child dates; contradictory constraints fail with EngineError.
 - 2026-11-12 (M6): Refines Q6 to both sides. A distribution check is also
   skipped when the profile behind it rests on fewer than `min_fidelity_rows`
   source rows (`sample_rows`, the pairwise sample, or the profiled parents):
   at 2% seed scale a 12-bin month mix of ~600 source rows differs from a fresh
   sample by about 0.12 through noise alone.
+- 2026-11-12 (M6): Integrity reads one column at a time (`OutputData`) and adds:
+  formats (ISO dates; pattern masks with Luhn digits; semantic emails and card
+  numbers) checked only on rows the baseline generator made (rows of scenarios
+  that rewrite the column follow their overlay); every table constraint
+  (`constraint_<kind>`, orders against a parent join the driving key, which
+  covers parent date before child date); the written Arrow type from the part
+  schema. A text that is not a date counts as missing in comparisons (the
+  format check reports it).
+- 2026-11-12 (M6): The recorded Groq replay gained a hand-written
+  `SpecPatch.json` (marked in its README): the recorded overlays put
+  transactions before their card's issue date, which M6 integrity now catches,
+  and the patch moves the overlay time windows after the last issue date. The
+  replay therefore includes one repair round.
 
 ## 4. Milestones
 
@@ -716,7 +734,7 @@ confirmed or corrected it moves to section 3.
     JS category, null diff, Spearman diff, temporal JS, children-per-parent
     KS, row count; typical rows only; small-sample rule per Q6). Validation
     reads Parquet in column batches for wide tables. Tests.
-  - [ ] T6.2 Integrity complete: formats, constraints, parent date before child
+  - [x] T6.2 Integrity complete: formats, constraints, parent date before child
     date. Tests.
   - [ ] T6.3 Scenario family: `validation/signature.py`,
     `validation/scenario.py` (share, presence, signature ≥ 99%, KS ≥ 0.30,

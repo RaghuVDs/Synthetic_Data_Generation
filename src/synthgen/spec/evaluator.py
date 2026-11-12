@@ -68,13 +68,28 @@ def to_internal(values: Values, kind: ExprType) -> Values:
         return np.array([bool(v) if v is not None else False for v in values], dtype=bool)
     if kind in TIMES:
         texts = [str(v).replace(" ", "T") if v is not None else "NaT" for v in values]
-        stamps = np.array(texts, dtype="datetime64[s]")
+        stamps = _parse_times(texts)
         seconds = stamps.astype(np.int64).astype(np.float64)
         seconds[np.isnat(stamps)] = np.nan
         return seconds
     if values.dtype != object:
         return values.astype(np.float64)
     return np.array([np.nan if v is None else float(v) for v in values], dtype=np.float64)
+
+
+def _parse_times(texts: list[str]) -> NDArray[np.datetime64]:
+    """ISO texts to seconds; a text that is not a date (a deliberate defect) becomes missing."""
+    try:
+        return np.array(texts, dtype="datetime64[s]")
+    except ValueError:
+        return np.array([_parse_time(t) for t in texts], dtype="datetime64[s]")
+
+
+def _parse_time(text: str) -> np.datetime64:
+    try:
+        return np.datetime64(text, "s")
+    except ValueError:
+        return np.datetime64("NaT", "s")
 
 
 def to_output(values: Values, kind: ExprType) -> Values:

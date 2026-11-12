@@ -20,7 +20,7 @@ def validate_output(inputs: ValidationInputs, out_dir: Path) -> ValidationReport
     data = OutputData(out_dir, manifest)
     spec = inputs.spec
     results: list[CheckResult] = [
-        *check_integrity(spec, out_dir, manifest),
+        *check_integrity(spec, data),
         *check_row_counts(spec, manifest, inputs.options, inputs.settings),
     ]
     for table in spec.tables:

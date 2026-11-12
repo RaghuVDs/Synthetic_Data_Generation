@@ -13,6 +13,7 @@ from synthgen.spec.merge import merge_overlays
 from synthgen.spec.models import GenerationSpec, ScenarioSpec
 from synthgen.spec.validator import validate_spec
 from synthgen.validation.integrity import check_integrity
+from synthgen.validation.output import OutputData
 
 from .test_runner import BIG, GENERATION, _col, make_spec
 
@@ -71,7 +72,9 @@ def test_defects_break_values_and_label_them(tmp_path: Path) -> None:
     assert orphans and not orphans & set(ids)
     assert all(r["_defect"] is None for r in orders if r["_scenario"] == "typical")
     failures = [
-        c for c in check_integrity(spec, tmp_path, read_manifest(tmp_path)) if c.status == "fail"
+        c
+        for c in check_integrity(spec, OutputData(tmp_path, read_manifest(tmp_path)))
+        if c.status == "fail"
     ]
     assert failures == []  # labelled defect rows are exempt from integrity
 

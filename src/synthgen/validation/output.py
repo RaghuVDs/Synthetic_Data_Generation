@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pyarrow.parquet as pq
 from numpy.typing import NDArray
 
 from synthgen.config import ValidationSettings
@@ -67,6 +68,15 @@ class OutputData:
         cells = values.astype(object)  # Arrow gives NaN for null floats; nulls must stay None
         cells[np.asarray(data.is_null().to_numpy(zero_copy_only=False), dtype=bool)] = None
         return cells
+
+    def arrow_type(self, table: str, name: str) -> str | None:
+        """The Arrow type a column was written with, read from the first part's schema."""
+        entry = self.entry(table)
+        if entry is None or not entry.files:
+            return None
+        schema = pq.read_schema(self._out_dir / entry.files[0].path)
+        index = schema.get_field_index(name)
+        return None if index < 0 else str(schema.field(index).type)
 
     def label(self, table: str, name: str) -> Cells:
         """A label column (`_scenario`, `_category`, `_defect`), cached."""

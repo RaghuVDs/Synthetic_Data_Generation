@@ -1,65 +1,45 @@
-"""Integrity checks (SPEC 8.6): keys, references, required values, types and formats.
+"""Integrity checks (SPEC 8.6): keys, references, required values, types, formats, constraints.
 
-Integrity is a hard gate. When every failing row belongs to scenario rows, the result names
-those scenarios so routing can send the failure back to the overlay (PLAN A5).
+Integrity is a hard gate. Rows with a labelled, deliberate defect are exempt. When every failing
+row belongs to scenario rows, the result names those scenarios so routing can send the failure
+back to the overlay (PLAN A5).
 """
 
 from __future__ import annotations
 
-import re
 from collections.abc import Sequence
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import numpy as np
-import pyarrow as pa
 
 from synthgen.domain.report import CheckFamily, CheckResult, CheckStatus
 from synthgen.engine.schema import ARROW_TYPES, DEFECT_COLUMN, SCENARIO_COLUMN
-from synthgen.engine.writer import Manifest, read_table
-from synthgen.spec.models import TYPICAL, ColumnSpec, ColumnType, GenerationSpec, TableSpec
+from synthgen.spec.models import ColumnSpec, GenerationSpec, TableSpec
+from synthgen.validation.integrity_rules import (
+    RowInfo,
+    constraint_violations,
+    format_violations,
+    traced,
+)
+from synthgen.validation.output import Cells, OutputData
 
-_FORMATS = {
-    ColumnType.DATE: re.compile(r"^\d{4}-\d{2}-\d{2}$"),
-    ColumnType.DATETIME: re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$"),
-}
 
-
-def check_integrity(spec: GenerationSpec, out_dir: Path, manifest: Manifest) -> list[CheckResult]:
+def check_integrity(spec: GenerationSpec, data: OutputData) -> list[CheckResult]:
     """Every integrity check on every written table."""
-    loaded = {
-        t.name: read_table(out_dir, entry)
-        for t in spec.tables
-        if (entry := manifest.table(t.name)) is not None
-    }
     results: list[CheckResult] = []
     for table in spec.tables:
-        data = loaded.get(table.name)
-        if data is None:
+        if data.entry(table.name) is None:
             results.append(_result((table.name, None), "table_written", 1, detail="table missing"))
             continue
-        scenarios = np.asarray(data.column(SCENARIO_COLUMN).to_pylist(), dtype=object)
-        rows = RowInfo(scenarios=scenarios, clean=_clean_rows(data))
+        rows = RowInfo(
+            scenarios=data.label(table.name, SCENARIO_COLUMN),
+            clean=np.equal(data.label(table.name, DEFECT_COLUMN), None),
+        )
         for column in table.columns:
-            values = data.column(column.name)
-            results += _column_checks(table, column, values, rows, loaded)
+            results += _column_checks(spec, table, column, rows, data)
+        for name, where, bad in constraint_violations(spec, table, data):
+            results.append(_counted((table.name, where), name, bad, rows))
     return results
-
-
-@dataclass(frozen=True)
-class RowInfo:
-    """Per-row facts every column check needs: the scenario, and whether a defect is labelled."""
-
-    scenarios: np.ndarray[Any, Any]
-    clean: np.ndarray[Any, Any]
-
-
-def _clean_rows(data: pa.Table) -> np.ndarray[Any, Any]:
-    """Rows without a deliberate, labelled defect; only these must pass integrity."""
-    if DEFECT_COLUMN not in data.column_names:
-        return np.ones(data.num_rows, dtype=bool)
-    return np.array([d is None for d in data.column(DEFECT_COLUMN).to_pylist()], dtype=bool)
 
 
 def _result(
@@ -85,68 +65,50 @@ def _result(
     )
 
 
-def _traced(bad: np.ndarray[Any, Any], scenarios: np.ndarray[Any, Any]) -> str | None:
-    """The overlay scenarios behind failing rows, or None when any failing row is typical."""
-    names = set(scenarios[bad].tolist())
-    if not names or TYPICAL in names:
-        return None
-    return ",".join(sorted(names))
+def _counted(where: tuple[str, str | None], check: str, bad: Cells, rows: RowInfo) -> CheckResult:
+    """A result over clean rows only, traced to the scenarios of its failing rows."""
+    failing = np.asarray(bad, dtype=bool) & rows.clean
+    return _result(where, check, int(failing.sum()), scenario=traced(failing, rows.scenarios))
 
 
 def _column_checks(
-    table: TableSpec,
-    column: ColumnSpec,
-    values: pa.ChunkedArray[Any],
-    rows: RowInfo,
-    loaded: dict[str, pa.Table],
+    spec: GenerationSpec, table: TableSpec, column: ColumnSpec, rows: RowInfo, data: OutputData
 ) -> list[CheckResult]:
-    py = np.asarray(values.to_pylist(), dtype=object)
-    present = np.array([v is not None for v in py], dtype=bool)
-    checks: list[tuple[str, np.ndarray[Any, Any]]] = []
+    values = data.column(table.name, column.name)
+    present = np.not_equal(values, None)
+    checks: list[tuple[str, Cells]] = []
     if not column.nullable or column.primary_key:
         checks.append(("not_null", ~present))
     if column.primary_key or column.unique:
-        checks.append(
-            (
-                "primary_key_unique" if column.primary_key else "unique",
-                _repeats(py, present & rows.clean),
-            )
-        )
+        name = "primary_key_unique" if column.primary_key else "unique"
+        checks.append((name, _repeats(values, present & rows.clean)))
     reference = _reference(table, column)
-    if reference is not None and reference[0] in loaded:
-        parent_keys = set(loaded[reference[0]].column(reference[1]).to_pylist())
+    if reference is not None and data.entry(reference[0]) is not None:
+        parent_keys = set(data.column(*reference).tolist())
         checks.append(
-            ("foreign_key_resolves", present & np.array([v not in parent_keys for v in py]))
+            ("foreign_key_resolves", present & np.array([v not in parent_keys for v in values]))
         )
-    pattern = _FORMATS.get(column.type)
-    if pattern is not None:
-        checks.append(("format", present & np.array([not pattern.match(str(v)) for v in py])))
-    results = [
-        _result(
-            (table.name, column.name),
-            name,
-            int((bad & rows.clean).sum()),
-            scenario=_traced(bad & rows.clean, rows.scenarios),
-        )
-        for name, bad in checks
-    ]
-    type_ok = values.type == ARROW_TYPES[column.type]
+    found = format_violations(spec, table, column, values, rows.scenarios)
+    checks += [("format", bad) for bad in found]
+    results = [_counted((table.name, column.name), name, bad, rows) for name, bad in checks]
+    written = data.arrow_type(table.name, column.name)
+    type_ok = written == str(ARROW_TYPES[column.type])
     results.append(
         _result(
             (table.name, column.name),
             "type",
             0 if type_ok else 1,
-            detail=None if type_ok else str(values.type),
+            detail=None if type_ok else written,
         )
     )
     return results
 
 
-def _repeats(values: np.ndarray[Any, Any], present: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
-    """True on every non-null row whose value appeared earlier."""
+def _repeats(values: Cells, considered: Cells) -> Cells:
+    """True on every considered row whose value appeared on an earlier considered row."""
     seen: set[Any] = set()
     out = np.zeros(values.size, dtype=bool)
-    for i in np.flatnonzero(present):
+    for i in np.flatnonzero(considered):
         value = values[i]
         out[i] = value in seen
         seen.add(value)
