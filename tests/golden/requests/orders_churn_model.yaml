@@ -1,0 +1,14 @@
+source: orders
+tables: [customers, orders]
+target_table: orders
+request: 'Churn model test data: loyal customers who ordered regularly and then stopped ordering completely
+  after about a year.'
+answer: null
+expected:
+  test_type: model_validation
+  include_invalid: false
+  must_have:
+  - what: ordering stops
+    categories: [target_scenario, temporal]
+    tables: [orders]
+    columns: [order_ts]

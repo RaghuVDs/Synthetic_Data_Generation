@@ -1,0 +1,18 @@
+source: orders
+tables: [products]
+target_table: products
+request: Test the product catalogue screens with inactive products, very heavy items and products priced
+  at the minimum and maximum prices.
+answer: null
+expected:
+  test_type: ui_testing
+  include_invalid: false
+  must_have:
+  - what: price and weight extremes
+    categories: [boundary]
+    tables: [products]
+    columns: [unit_price, weight_kg]
+  - what: inactive products
+    categories: [rare, target_scenario, boundary]
+    tables: [products]
+    columns: [is_active]

@@ -1,0 +1,22 @@
+source: finance
+tables: [customers, accounts, cards, transactions, merchants]
+target_table: transactions
+request: 'Card fraud test data for our fraud model: include card-testing bursts of small purchases, large
+  purchases at night, and legitimate large daytime purchases that should not be flagged.'
+answer: null
+expected:
+  test_type: model_validation
+  include_invalid: false
+  must_have:
+  - what: card-testing bursts
+    categories: [target_scenario]
+    tables: [transactions]
+    columns: [amount, txn_timestamp, card_id]
+  - what: large night purchases
+    categories: [target_scenario]
+    tables: [transactions]
+    columns: [amount, txn_timestamp]
+  - what: legitimate large daytime purchases
+    categories: [near_miss]
+    tables: [transactions]
+    columns: [amount, txn_timestamp]

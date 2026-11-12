@@ -1,0 +1,18 @@
+source: orders
+tables: [customers, products, orders, order_items]
+target_table: orders
+request: 'UI tests for the order history page: customers with a single order, orders with many lines,
+  orders with a zero total and very long discount codes.'
+answer: null
+expected:
+  test_type: ui_testing
+  include_invalid: false
+  must_have:
+  - what: orders with many lines
+    categories: [volume_skew, rare, boundary, target_scenario]
+    tables: [order_items]
+    columns: [order_id]
+  - what: zero totals or long codes
+    categories: [boundary, rare]
+    tables: [orders]
+    columns: [total_amount, discount_code]

@@ -1,0 +1,18 @@
+source: orders
+tables: [customers, products, orders, order_items]
+target_table: order_items
+request: 'Black Friday performance test: very large orders with dozens of lines and a few hot products
+  that appear in a large share of all order lines.'
+answer: null
+expected:
+  test_type: performance_testing
+  include_invalid: false
+  must_have:
+  - what: hot products
+    categories: [volume_skew]
+    tables: [order_items]
+    columns: [product_id]
+  - what: very large orders
+    categories: [volume_skew, rare, target_scenario, boundary]
+    tables: [order_items]
+    columns: [order_id, quantity]

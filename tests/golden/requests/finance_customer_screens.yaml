@@ -1,0 +1,22 @@
+source: finance
+tables: [customers, accounts, cards]
+target_table: customers
+request: 'UI testing for the customer profile screens: customers with no phone number, customers with
+  many accounts and cards, and accounts with extreme balances.'
+answer: null
+expected:
+  test_type: ui_testing
+  include_invalid: false
+  must_have:
+  - what: missing phones
+    categories: [boundary, rare, target_scenario]
+    tables: [customers]
+    columns: [phone]
+  - what: many accounts or cards
+    categories: [volume_skew, rare, boundary, target_scenario]
+    tables: []
+    columns: [customer_id, account_id]
+  - what: extreme balances
+    categories: [boundary, rare]
+    tables: [accounts]
+    columns: [balance]

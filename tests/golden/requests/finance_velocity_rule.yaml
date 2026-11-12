@@ -1,0 +1,18 @@
+source: finance
+tables: [customers, accounts, cards, transactions]
+target_table: transactions
+request: We need to test the fraud rule that blocks a card after more than 5 transactions within 10 minutes.
+  Give us cards that trip it and cards that stay just under the threshold.
+answer: null
+expected:
+  test_type: rule_testing
+  include_invalid: false
+  must_have:
+  - what: cards over the velocity limit
+    categories: [target_scenario]
+    tables: [transactions]
+    columns: [txn_timestamp, card_id]
+  - what: cards just under the limit
+    categories: [near_miss, boundary]
+    tables: [transactions]
+    columns: [txn_timestamp, card_id]

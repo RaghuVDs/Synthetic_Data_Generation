@@ -1,0 +1,18 @@
+source: finance
+tables: [customers, accounts]
+target_table: accounts
+request: Test the rule that flags credit accounts whose balance is above the credit limit, including balances
+  exactly at the limit.
+answer: null
+expected:
+  test_type: rule_testing
+  include_invalid: false
+  must_have:
+  - what: balance above credit limit
+    categories: [target_scenario, rare]
+    tables: [accounts]
+    columns: [balance, credit_limit]
+  - what: balance exactly at the limit
+    categories: [boundary, near_miss]
+    tables: [accounts]
+    columns: [balance, credit_limit]

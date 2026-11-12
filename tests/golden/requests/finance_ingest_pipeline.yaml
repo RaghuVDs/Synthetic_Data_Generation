@@ -1,0 +1,15 @@
+source: finance
+tables: [customers, accounts, cards, transactions]
+target_table: transactions
+request: 'Stress our ingestion pipeline with dirty transactions: missing amounts, transactions pointing
+  at cards that do not exist, duplicate transaction ids and badly formatted timestamps. Include invalid
+  rows.'
+answer: null
+expected:
+  test_type: pipeline_testing
+  include_invalid: true
+  must_have:
+  - what: broken transaction rows
+    categories: [invalid]
+    tables: [transactions]
+    columns: []

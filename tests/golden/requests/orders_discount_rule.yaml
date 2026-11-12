@@ -1,0 +1,18 @@
+source: orders
+tables: [customers, orders]
+target_table: orders
+request: 'Test the discount validation rule: discount codes must not be used on orders below 10.00. Include
+  totals exactly at 10.00 and orders just below it with a code.'
+answer: null
+expected:
+  test_type: rule_testing
+  include_invalid: false
+  must_have:
+  - what: codes on small orders
+    categories: [target_scenario, invalid]
+    tables: [orders]
+    columns: [discount_code, total_amount]
+  - what: totals at the threshold
+    categories: [boundary, near_miss]
+    tables: [orders]
+    columns: [total_amount]

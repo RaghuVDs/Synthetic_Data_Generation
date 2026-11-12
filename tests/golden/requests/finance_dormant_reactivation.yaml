@@ -1,0 +1,14 @@
+source: finance
+tables: [customers, accounts, cards, transactions]
+target_table: transactions
+request: Our monitoring must alert when a card is dormant for months and then suddenly makes many purchases.
+  Create test data for that alert.
+answer: null
+expected:
+  test_type: rule_testing
+  include_invalid: false
+  must_have:
+  - what: dormant then burst
+    categories: [target_scenario, temporal]
+    tables: [transactions]
+    columns: [txn_timestamp, card_id]

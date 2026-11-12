@@ -1,0 +1,14 @@
+source: orders
+tables: [customers, orders, shipments]
+target_table: orders
+request: Our audit rule says cancelled orders must never have a shipment. Create data where some cancelled
+  orders were shipped so the rule fires.
+answer: null
+expected:
+  test_type: rule_testing
+  include_invalid: false
+  must_have:
+  - what: shipped cancelled orders
+    categories: [target_scenario, invalid]
+    tables: []
+    columns: [status, shipped_date, order_id]

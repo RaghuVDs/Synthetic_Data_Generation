@@ -1,0 +1,18 @@
+source: orders
+tables: [customers, orders, shipments]
+target_table: orders
+request: We are training a late-delivery model. Include shipments that leave many days after the order
+  and some orders that ship quickly despite looking risky.
+answer: null
+expected:
+  test_type: model_validation
+  include_invalid: false
+  must_have:
+  - what: late shipments
+    categories: [target_scenario, temporal]
+    tables: [shipments]
+    columns: [shipped_date, delivered_date, promised_date, is_late]
+  - what: quick shippers that look risky
+    categories: [near_miss]
+    tables: []
+    columns: [shipped_date, delivered_date, is_late, order_ts, carrier]

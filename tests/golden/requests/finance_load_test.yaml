@@ -1,0 +1,14 @@
+source: finance
+tables: [customers, accounts, cards, transactions, merchants]
+target_table: transactions
+request: 'Load-test the transaction search service: realistic volume where a handful of merchants and
+  cards account for a very large share of transactions.'
+answer: null
+expected:
+  test_type: performance_testing
+  include_invalid: false
+  must_have:
+  - what: hot merchants or cards
+    categories: [volume_skew]
+    tables: [transactions]
+    columns: [merchant_id, card_id]

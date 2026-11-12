@@ -1,0 +1,14 @@
+source: finance
+tables: [customers, accounts, cards, transactions]
+target_table: transactions
+request: 'Capacity test for the holiday season: transactions should spike in late November and December,
+  with more online purchases.'
+answer: null
+expected:
+  test_type: performance_testing
+  include_invalid: false
+  must_have:
+  - what: seasonal spike
+    categories: [temporal, target_scenario, volume_skew]
+    tables: [transactions]
+    columns: [txn_timestamp, channel]

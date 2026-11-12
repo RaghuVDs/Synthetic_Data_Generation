@@ -1,0 +1,18 @@
+source: orders
+tables: [customers, orders]
+target_table: orders
+request: 'Data for a return-abuse model: a small group of customers who return most of their orders, plus
+  heavy buyers who rarely return.'
+answer: null
+expected:
+  test_type: model_validation
+  include_invalid: false
+  must_have:
+  - what: serial returners
+    categories: [target_scenario]
+    tables: [orders]
+    columns: [status, customer_id]
+  - what: heavy buyers who keep items
+    categories: [near_miss]
+    tables: [orders]
+    columns: [status, customer_id, total_amount]

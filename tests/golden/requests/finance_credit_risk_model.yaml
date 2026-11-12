@@ -1,0 +1,18 @@
+source: finance
+tables: [customers, accounts]
+target_table: accounts
+request: 'Data to validate a credit-risk model: low credit scores with high balances should look risky;
+  include some high-income customers with low scores who are not risky.'
+answer: null
+expected:
+  test_type: model_validation
+  include_invalid: false
+  must_have:
+  - what: risky low score high balance
+    categories: [target_scenario]
+    tables: []
+    columns: [credit_score, balance]
+  - what: not-risky look-alikes
+    categories: [near_miss]
+    tables: []
+    columns: [credit_score, annual_income, balance]
