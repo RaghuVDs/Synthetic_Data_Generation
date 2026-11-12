@@ -42,6 +42,7 @@ def make_spec(
             "tables": [
                 {
                     "name": "customers",
+                    "correlation": None,
                     "row_rule": {"kind": "fixed", "rows": customers},
                     "columns": [
                         _col(
@@ -72,6 +73,7 @@ def make_spec(
                 },
                 {
                     "name": "orders",
+                    "correlation": None,
                     "row_rule": {
                         "kind": "per_parent",
                         "parent_table": "customers",
@@ -123,6 +125,7 @@ BIG = {
     "unit": "entity",
     "entity": "customers",
     "labels": [{"table": "orders", "column": "flag", "value": 1}],
+    "correlations": [],
     "overrides": [
         {
             "table": "orders",

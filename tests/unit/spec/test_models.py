@@ -23,6 +23,7 @@ def _spec() -> dict[str, Any]:
         "tables": [
             {
                 "name": "people",
+                "correlation": None,
                 "row_rule": {"kind": "fixed", "rows": 10},
                 "columns": [
                     {

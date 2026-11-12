@@ -23,6 +23,10 @@ rows, and which label values those rows carry.
 - Sensitive columns may only use pattern, semantic or constant generators.
 - Quantify from PROFILE_CARDS and the plan's levers; never invent a number.
 - labels set label columns (e.g. a fraud or late flag) for the scenario's rows.
+- correlations (correlation_change) give a table's numeric columns a different Spearman matrix
+  on the scenario's rows: {"table": str, "columns": [str, ...], "spearman": [[...], ...]}
+  (square, symmetric, 1 on the diagonal). The columns need empirical or distribution generators.
+  Use [] when the scenario changes no correlation.
 - If SPEC_ERRORS is not "none", fix every listed error.
 - Leave out every lever listed in NOT_EXPRESSIBLE_PARTS; do not approximate it with another
   generator. Express the rest of the scenario.
@@ -81,4 +85,5 @@ Output:
   "unit": "entity", "entity": "subscriptions",
   "labels": [{"table": "subscriptions", "column": "churned", "value": 1}],
   "overrides": [{"table": "viewing_sessions", "column": "minutes",
-                 "generator": {"type": "empirical", "quantiles": [0.5, 2.0], "decimals": 1}}]}]}
+                 "generator": {"type": "empirical", "quantiles": [0.5, 2.0], "decimals": 1}}],
+  "correlations": []}]}

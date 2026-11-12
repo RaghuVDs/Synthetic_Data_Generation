@@ -8,7 +8,7 @@ from synthgen.agents.state import JobState
 from synthgen.domain.job import ArtifactKind
 from synthgen.spec.merge import merge_overlays
 from synthgen.spec.models import GenerationSpec
-from synthgen.spec.validator import validate_spec
+from synthgen.spec.validator import repair_correlations, validate_spec
 
 
 def run(state: JobState, deps: NodeDeps) -> StateUpdate:
@@ -19,6 +19,7 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
         spec = merge_overlays(baseline, state["overlays"])
     else:
         spec = load_spec(state, deps)
+    spec = repair_correlations(spec)
     errors = validate_spec(spec, deps.settings.generation)
     if errors:
         return {"spec_errors": errors, "spec_ref": None}

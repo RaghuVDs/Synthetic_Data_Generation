@@ -6,14 +6,17 @@ overlay (the overlay writer can repair it).
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, TypeVar
 
 from synthgen.config import GenerationSettings
 from synthgen.domain.errors import ExpressionError
 from synthgen.spec.checks import GeneratorChecker
+from synthgen.spec.correlation import as_matrix, is_valid, nearest_correlation
 from synthgen.spec.dependencies import generation_order
 from synthgen.spec.models import (
     ColumnOverride,
+    CorrelationOverride,
+    CorrelationSpec,
     GenerationSpec,
     ScenarioSpec,
     SpecError,
@@ -68,6 +71,11 @@ def _table_errors(
         generation_order(table.columns)
     except ExpressionError as error:
         errors.append(_error("baseline", f"{path}/columns", str(error)))
+    if table.correlation is not None:
+        generators = {c.name: c.generator for c in table.columns}
+        problem = checker.correlation_problem(table, table.correlation, generators)
+        if problem:
+            errors.append(_error("baseline", f"{path}/correlation", problem))
     return errors
 
 
@@ -96,8 +104,49 @@ def _scenario_errors(spec: GenerationSpec, checker: GeneratorChecker) -> list[Sp
             for j, override in enumerate(scenario.overrides)
         ]
         problems.append((f"{path}/overrides", _override_cycle(spec, scenario)))
+        problems += [
+            (f"{path}/correlations/{j}", _correlation_override_problem(spec, checker, scenario, j))
+            for j in range(len(scenario.correlations))
+        ]
         errors += [_error("overlay", at, p, scenario.name) for at, p in problems if p]
     return errors
+
+
+def _correlation_override_problem(
+    spec: GenerationSpec, checker: GeneratorChecker, scenario: ScenarioSpec, index: int
+) -> str | None:
+    """The scenario's rows use its own generators where it overrides them, else the baseline."""
+    override = scenario.correlations[index]
+    table = spec.table(override.table)
+    if table is None:
+        return f"unknown table {override.table}"
+    generators = {c.name: c.generator for c in table.columns} | {
+        o.column: o.generator for o in scenario.overrides if o.table == table.name
+    }
+    return checker.correlation_problem(table, override, generators)
+
+
+def repair_correlations(spec: GenerationSpec) -> GenerationSpec:
+    """The spec with every correlation matrix replaced by the nearest valid one (SPEC 8.4)."""
+    tables = [
+        t.model_copy(update={"correlation": _repaired(t.correlation)}) if t.correlation else t
+        for t in spec.tables
+    ]
+    scenarios = [
+        s.model_copy(update={"correlations": [_repaired(c) for c in s.correlations]})
+        for s in spec.scenarios
+    ]
+    return spec.model_copy(update={"tables": tables, "scenarios": scenarios})
+
+
+Matrix = TypeVar("Matrix", CorrelationSpec, CorrelationOverride)
+
+
+def _repaired(correlation: Matrix) -> Matrix:
+    matrix = as_matrix(correlation.spearman)
+    if is_valid(matrix):
+        return correlation
+    return correlation.model_copy(update={"spearman": nearest_correlation(matrix).tolist()})
 
 
 def _override_cycle(spec: GenerationSpec, scenario: ScenarioSpec) -> str | None:

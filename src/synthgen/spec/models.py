@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import hashlib
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from synthgen.domain.base import StrictModel
 from synthgen.domain.plan import ScenarioCategory, ScenarioUnit
@@ -14,6 +14,8 @@ from synthgen.spec.expressions import ExprType
 from synthgen.spec.generators import Generator, Scalar
 
 SPEC_FORMAT_VERSION = 2
+MATRIX_TOLERANCE = 1e-6
+"""Allowed rounding error in a correlation matrix's symmetry and unit diagonal."""
 TYPICAL = "typical"
 """`_scenario` and `_category` value of rows no scenario touched."""
 
@@ -90,12 +92,37 @@ class PerParentRows(StrictModel):
 RowRule = Annotated[FixedRows | PerParentRows, Field(discriminator="kind")]
 
 
+class CorrelationSpec(StrictModel):
+    """Spearman correlations between numeric columns, generated together by a Gaussian copula."""
+
+    columns: list[str] = Field(min_length=2)
+    spearman: list[list[float]]
+
+    @model_validator(mode="after")
+    def _shape(self) -> Self:
+        size = len(self.columns)
+        if len(set(self.columns)) != size:
+            raise ValueError("correlation columns repeat")
+        if len(self.spearman) != size or any(len(row) != size for row in self.spearman):
+            raise ValueError(f"correlation matrix must be {size} x {size}")
+        for i, row in enumerate(self.spearman):
+            if abs(row[i] - 1.0) > MATRIX_TOLERANCE:
+                raise ValueError("correlation matrix diagonal must be 1")
+            for j, value in enumerate(row):
+                if not -1.0 <= value <= 1.0:
+                    raise ValueError("correlations must lie between -1 and 1")
+                if abs(value - self.spearman[j][i]) > MATRIX_TOLERANCE:
+                    raise ValueError("correlation matrix must be symmetric")
+        return self
+
+
 class TableSpec(StrictModel):
-    """One table: how many rows and how each column is made."""
+    """One table: how many rows, how each column is made, and which columns move together."""
 
     name: str
     row_rule: RowRule
     columns: list[ColumnSpec] = Field(min_length=1)
+    correlation: CorrelationSpec | None
 
     def column(self, name: str) -> ColumnSpec | None:
         """One column's spec, or None when the table has no such column."""
@@ -123,6 +150,12 @@ class ColumnOverride(StrictModel):
     generator: Generator
 
 
+class CorrelationOverride(CorrelationSpec):
+    """Correlations a scenario's rows follow instead of the table's (correlation_change)."""
+
+    table: str
+
+
 class ScenarioSpec(StrictModel):
     """A scenario overlay. Rows of `entity` are assigned; descendant rows inherit the scenario."""
 
@@ -133,6 +166,7 @@ class ScenarioSpec(StrictModel):
     entity: str
     labels: list[LabelSetting]
     overrides: list[ColumnOverride]
+    correlations: list[CorrelationOverride]
 
 
 class OverlaySet(StrictModel):

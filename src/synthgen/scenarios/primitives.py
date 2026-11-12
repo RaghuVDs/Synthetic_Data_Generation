@@ -13,7 +13,7 @@ from enum import StrEnum
 from synthgen.domain.plan import Primitive
 from synthgen.domain.semantic import ColumnRole
 from synthgen.spec import generators
-from synthgen.spec.models import ScenarioSpec, TableSpec
+from synthgen.spec.models import ScenarioSpec
 
 
 class Construct(StrEnum):
@@ -106,6 +106,6 @@ def available_constructs() -> frozenset[Construct]:
         Construct.SEQUENCE: "sequence" in ScenarioSpec.model_fields,
         Construct.DEFECTS: "defects" in ScenarioSpec.model_fields,
         Construct.CARDINALITY: "cardinality" in ScenarioSpec.model_fields,
-        Construct.CORRELATION: "correlation" in TableSpec.model_fields,
+        Construct.CORRELATION: "correlations" in ScenarioSpec.model_fields,
     }
     return frozenset(found | {c for c, ok in checks.items() if ok})

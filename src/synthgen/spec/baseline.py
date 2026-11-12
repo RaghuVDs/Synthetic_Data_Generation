@@ -5,11 +5,15 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+import numpy as np
+
 from synthgen.config import GenerationSettings
 from synthgen.domain.errors import SpecCompilationError
 from synthgen.domain.metadata import ColumnMeta, Relationship, Sensitivity, TableMeta, TableSet
 from synthgen.domain.semantic import SemanticMap
 from synthgen.profiling.models import ColumnProfile, InferredType, TableProfile
+from synthgen.spec.checks import COPULA_GENERATORS
+from synthgen.spec.correlation import as_matrix, nearest_correlation
 from synthgen.spec.generators import (
     CategoricalGen,
     ConstantGen,
@@ -28,6 +32,7 @@ from synthgen.spec.models import (
     ChildCount,
     ColumnSpec,
     ColumnType,
+    CorrelationSpec,
     FixedRows,
     GenerationSpec,
     OutputSpec,
@@ -90,7 +95,36 @@ def _table(name: str, inputs: BaselineInputs, settings: GenerationSettings) -> T
         if column is None:
             raise SpecCompilationError(f"profile of {name} has no column {meta.name}")
         columns.append(_column(meta, column, keys.get(meta.name), is_label=meta.name == label))
-    return TableSpec(name=name, row_rule=_row_rule(name, inputs, settings), columns=columns)
+    return TableSpec(
+        name=name,
+        row_rule=_row_rule(name, inputs, settings),
+        columns=columns,
+        correlation=_correlation(profile, columns, settings),
+    )
+
+
+def _correlation(
+    profile: TableProfile, columns: list[ColumnSpec], settings: GenerationSettings
+) -> CorrelationSpec | None:
+    """The profiled Spearman matrix over columns with quantile generators that correlate.
+
+    A column joins when its strongest |rho| with another reaches `copula_min_rho`; wide tables
+    keep the `max_copula_columns` columns with the largest total |rho|.
+    """
+    cross = profile.cross_column
+    eligible = {c.name for c in columns if c.generator.type in COPULA_GENERATORS}
+    names = [n for n in cross.spearman_columns if n in eligible]
+    if len(names) < 2:  # noqa: PLR2004 - a correlation needs two columns
+        return None
+    positions = [cross.spearman_columns.index(n) for n in names]
+    matrix = as_matrix(cross.spearman)[np.ix_(positions, positions)]
+    strength = np.abs(matrix - np.eye(len(names)))
+    joined = [i for i in range(len(names)) if strength[i].max() >= settings.copula_min_rho]
+    joined = sorted(sorted(joined, key=lambda i: -strength[i].sum())[: settings.max_copula_columns])
+    if len(joined) < 2:  # noqa: PLR2004
+        return None
+    kept = nearest_correlation(matrix[np.ix_(joined, joined)])
+    return CorrelationSpec(columns=[names[i] for i in joined], spearman=kept.tolist())
 
 
 def _row_rule(name: str, inputs: BaselineInputs, settings: GenerationSettings) -> RowRule:

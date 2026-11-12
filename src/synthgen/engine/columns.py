@@ -11,13 +11,24 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 
 import numpy as np
+from numpy.typing import NDArray
 
 from synthgen.domain.errors import EngineError
+from synthgen.engine.copula import correlated_uniforms
 from synthgen.engine.generators import GenContext, Values, generate
+from synthgen.engine.generators.basic import from_uniform
 from synthgen.engine.scenarios import ObjectArray
 from synthgen.spec.dependencies import downstream, generation_order, own_reads, reads
+from synthgen.spec.distributions import DistributionGen
 from synthgen.spec.evaluator import Column
-from synthgen.spec.models import EXPR_TYPES, ColumnSpec, ScenarioSpec, TableSpec
+from synthgen.spec.generators import EmpiricalGen, Generator
+from synthgen.spec.models import (
+    EXPR_TYPES,
+    ColumnSpec,
+    CorrelationSpec,
+    ScenarioSpec,
+    TableSpec,
+)
 
 MAX_UNIQUE_REDRAWS = 20
 
@@ -36,14 +47,34 @@ def draw_columns(draw: TableDraw, n: int, fixed: Mapping[str, Values]) -> dict[s
     table, rng, ctx = draw.table, draw.rng, draw.ctx
     values: dict[str, Values] = {}
     frame: dict[str, Column] = dict(ctx.frame)
+    copula = _copula_draws(table.correlation, {c.name: c.generator for c in table.columns}, n, rng)
     for column in generation_order(table.columns):
-        drawn = fixed.get(column.name)
+        drawn = fixed.get(column.name, copula.get(column.name))
         if drawn is None:
             needed = {k: frame[k] for k in reads(column.generator)}
             drawn = _draw(column, n, rng, replace(ctx, frame=needed))
         values[column.name] = _with_nulls(drawn, column, rng)
         frame[column.name] = (EXPR_TYPES[column.type], values[column.name])
     return values
+
+
+def _copula_draws(
+    correlation: CorrelationSpec | None,
+    generators: Mapping[str, Generator],
+    n: int,
+    rng: np.random.Generator,
+) -> dict[str, Values]:
+    """Values of the correlated columns, drawn together; each keeps its own marginal."""
+    if correlation is None:
+        return {}
+    uniforms = correlated_uniforms(correlation.spearman, n, rng)
+    drawn: dict[str, Values] = {}
+    for index, name in enumerate(correlation.columns):
+        gen = generators[name]
+        if not isinstance(gen, EmpiricalGen | DistributionGen):
+            raise EngineError(f"correlated column {name} has a {gen.type} generator")
+        drawn[name] = from_uniform(gen, uniforms[:, index])
+    return drawn
 
 
 def _draw(column: ColumnSpec, n: int, rng: np.random.Generator, ctx: GenContext) -> Values:
@@ -81,23 +112,45 @@ def apply_overlays(
         if rows.size == 0:
             continue
         overrides = {o.column: o.generator for o in scenario.overrides if o.table == table.name}
+        correlated = _scenario_copula(scenario, table, overrides, rows.size, rng)
         replaced = [
             c.model_copy(update={"generator": overrides[c.name]})
             for c in table.columns
-            if c.name in overrides
+            if c.name in overrides and c.name not in correlated
         ]
         given = {c.name for c in table.columns} - set(overrides)
+        for name, drawn in correlated.items():
+            values[name] = _set_rows(values[name], rows, drawn)
+        changed = set(overrides) | set(correlated)
         for column in [
-            *generation_order(replaced, given, overlay=True),
-            *downstream(table.columns, set(overrides)),
+            *generation_order(replaced, given | set(correlated), overlay=True),
+            *downstream(table.columns, changed),
         ]:
             frame = {**ctx.frame, **{k: (types[k], values[k]) for k in own_reads(column.generator)}}
-            updated = values[column.name].astype(object)
-            updated[rows] = generate(
+            drawn = generate(
                 column.generator, rows.size, rng, replace(ctx, frame=frame).subset(rows)
             )
-            values[column.name] = updated
+            values[column.name] = _set_rows(values[column.name], rows, drawn)
         for label in (lb for lb in scenario.labels if lb.table == table.name):
-            labelled = values[label.column].astype(object)
-            labelled[rows] = label.value
-            values[label.column] = labelled
+            values[label.column] = _set_rows(values[label.column], rows, label.value)
+
+
+def _set_rows(values: Values, rows: NDArray[np.int64], new: object) -> Values:
+    out = values.astype(object)
+    out[rows] = new
+    return out
+
+
+def _scenario_copula(
+    scenario: ScenarioSpec,
+    table: TableSpec,
+    overrides: Mapping[str, Generator],
+    n: int,
+    rng: np.random.Generator,
+) -> dict[str, Values]:
+    """Columns a scenario correlates on this table: its own generators where it overrides them."""
+    generators = {c.name: c.generator for c in table.columns} | dict(overrides)
+    drawn: dict[str, Values] = {}
+    for correlation in (c for c in scenario.correlations if c.table == table.name):
+        drawn |= _copula_draws(correlation, generators, n, rng)
+    return drawn

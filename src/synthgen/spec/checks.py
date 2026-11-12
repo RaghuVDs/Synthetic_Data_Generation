@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 import numpy as np
 
@@ -18,7 +18,14 @@ from synthgen.spec.generators import (
     SemanticGen,
     SemanticKind,
 )
-from synthgen.spec.models import EXPR_TYPES, ColumnSpec, ColumnType, GenerationSpec, TableSpec
+from synthgen.spec.models import (
+    EXPR_TYPES,
+    ColumnSpec,
+    ColumnType,
+    CorrelationSpec,
+    GenerationSpec,
+    TableSpec,
+)
 
 _NUMERIC = (ColumnType.INTEGER, ColumnType.FLOAT, ColumnType.BOOLEAN)
 _TIMES = (ColumnType.DATE, ColumnType.DATETIME)
@@ -32,6 +39,7 @@ SUITS: dict[str, tuple[ColumnType, ...]] = {
     "text_pool": (ColumnType.TEXT,),
 }
 SENSITIVE_OK = ("pattern", "semantic", "constant")
+COPULA_GENERATORS = ("empirical", "distribution")
 _RESULTS: dict[ExprType, tuple[ColumnType, ...]] = {
     ExprType.NUMBER: _NUMERIC,
     ExprType.BOOLEAN: (ColumnType.BOOLEAN, ColumnType.INTEGER),
@@ -79,6 +87,21 @@ class GeneratorChecker:
             return f"datetime granularity {gen.granularity} does not suit {column.type} column"
         if gen.type == "text_pool" and len(gen.values) > self._settings.text_pool_max_values:
             return f"text pool has more than {self._settings.text_pool_max_values} values"
+        return None
+
+    def correlation_problem(
+        self, table: TableSpec, correlation: CorrelationSpec, generators: Mapping[str, Generator]
+    ) -> str | None:
+        """Why these columns cannot share a copula, or None when they can."""
+        if len(correlation.columns) > self._settings.max_copula_columns:
+            limit = self._settings.max_copula_columns
+            return f"a copula covers at most {limit} columns, not {len(correlation.columns)}"
+        for name in correlation.columns:
+            column = table.column(name)
+            if column is None:
+                return f"unknown column {table.name}.{name}"
+            if generators[name].type not in COPULA_GENERATORS:
+                return f"correlated column {name} needs an empirical or distribution generator"
         return None
 
     def _foreign_key(self, gen: ForeignKeyGen, earlier: Sequence[str]) -> str | None:

@@ -333,6 +333,16 @@ confirmed or corrected it moves to section 3.
   gained two hand-written overlays, marked as such in its README: M5 made
   `boundary_transactions_amount` and `volume_skew_transactions_merchant`
   expressible, and the recording never asked the model for them.
+- 2026-11-11 (M5): Copula. `TableSpec.correlation` holds the baseline Spearman
+  matrix; `ScenarioSpec.correlations` carries correlation_change overrides
+  (the feasibility check now keys that construct on the scenario field). Only
+  columns with `empirical` or `distribution` generators join a copula, at most
+  `generation.max_copula_columns`; the baseline keeps columns whose strongest
+  |rho| reaches `generation.copula_min_rho`. `repair_correlations` (in
+  `spec/validator.py`, run by the spec_validator node) replaces a matrix that
+  is not positive semi-definite with the nearest valid one (Higham's
+  alternating projections, `spec/correlation.py`); the engine repairs the
+  normal-scale matrix again after `2 sin(pi rho / 6)`.
 
 ## 4. Milestones
 
@@ -583,7 +593,7 @@ confirmed or corrected it moves to section 3.
   - [x] T5.2 Remaining generators: `engine/generators/` (distribution,
     conditional, boundary, derived, pattern with check digit, semantic via
     seeded Faker pools, text_pool, FK Zipf/weighted/shared group). Tests.
-  - [ ] T5.3 Gaussian copula: `engine/copula.py`; nearest-PSD repair in
+  - [x] T5.3 Gaussian copula: `engine/copula.py`; nearest-PSD repair in
     `spec/validator.py`. Tests: Spearman matrix recovered. Wide tables: the
     copula covers at most `generation.max_copula_columns` correlated columns.
   - [ ] T5.4 Sequences and state paths: `engine/sequences.py`. Tests.

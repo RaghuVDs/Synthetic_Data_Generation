@@ -75,6 +75,7 @@ def _scenario(name: str, share: float) -> ScenarioSpec:
             "unit": "entity",
             "entity": "t",
             "labels": [],
+            "correlations": [],
             "overrides": [],
         }
     )

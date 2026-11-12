@@ -91,6 +91,7 @@ def test_available_constructs_follow_the_spec_models() -> None:
         Construct.TEXT_POOL,
         Construct.FK_WEIGHTS,
         Construct.SHARED_GROUP,
+        Construct.CORRELATION,
     }
 
 

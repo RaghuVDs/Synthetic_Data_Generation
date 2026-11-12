@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pytest
 
 from synthgen.config import GenerationSettings, ProfilingSettings, load_settings
@@ -138,6 +139,7 @@ def _with_overlay(baseline: GenerationSpec, **changes: Any) -> GenerationSpec:
         "unit": "entity",
         "entity": "customers",
         "labels": [{"table": "orders", "column": "paid", "value": 1}],
+        "correlations": [],
         "overrides": [
             {
                 "table": "orders",
@@ -269,3 +271,55 @@ def test_declared_unique_text_uses_masks_and_observed_uniqueness_is_ignored(
     assert name.generator.type == "pattern"
     assert city is not None and not city.unique  # distinct in the sample, but not declared unique
     assert city.generator.type == "categorical"
+
+
+def test_baseline_correlates_columns_the_profile_found_related(
+    tmp_path: Path, profiling_settings: ProfilingSettings, generation_settings: GenerationSettings
+) -> None:
+    path = tmp_path / "loans.db"
+    rng = np.random.default_rng(3)
+    income = rng.lognormal(10, 0.5, 3_000)
+    limit = income * 0.3 * rng.lognormal(0, 0.2, 3_000)
+    noise = rng.normal(0, 1, 3_000)
+    with closing(sqlite3.connect(path)) as conn:
+        conn.execute(
+            "CREATE TABLE loans"
+            " (id INTEGER PRIMARY KEY, income REAL, credit_limit REAL, noise REAL)"
+        )
+        conn.executemany(
+            "INSERT INTO loans VALUES (?, ?, ?, ?)",
+            [
+                (i + 1, float(a), float(b), float(c))
+                for i, (a, b, c) in enumerate(zip(income, limit, noise, strict=True))
+            ],
+        )
+        conn.commit()
+    with closing(SqliteConnector(path)) as connector:
+        provider = YamlMetadataProvider(SourceDoc(source="loans"), connector)
+        profile = profile_table(
+            "loans",
+            connector,
+            provider.table("loans"),
+            [],
+            parents={},
+            settings=profiling_settings,
+            seed=1,
+            now=PROFILE_NOW,
+        )
+        spec = compile_baseline(
+            BaselineInputs(
+                table_set=build_table_set(["loans"], ["loans"], []),
+                tables={"loans": provider.table("loans")},
+                profiles={"loans": profile},
+                profile_versions={"loans": "v"},
+                semantic_map=None,
+                row_targets={},
+                seed=1,
+            ),
+            generation_settings,
+        )
+    correlation = spec.tables[0].correlation
+    assert correlation is not None
+    assert correlation.columns == ["income", "credit_limit"]
+    assert correlation.spearman[0][1] > 0.8
+    assert validate_spec(spec, generation_settings) == []

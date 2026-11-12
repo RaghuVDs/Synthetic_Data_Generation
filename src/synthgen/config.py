@@ -118,6 +118,8 @@ class GenerationSettings(_Group):
     semantic_pool_size: int = Field(ge=1)
     faker_locale: str
     birth_dates: tuple[date, date]
+    max_copula_columns: int = Field(ge=2)
+    copula_min_rho: float = Field(ge=0.0, le=1.0)
 
 
 class LoopCaps(_Group):
