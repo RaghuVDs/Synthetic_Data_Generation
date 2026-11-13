@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
-from typing import Any
+from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 from pydantic import BaseModel
@@ -22,6 +23,7 @@ from synthgen.domain.plan import ScenarioPlan
 from synthgen.domain.semantic import SemanticMap
 from synthgen.domain.summary import Summary
 from synthgen.engine.writer import Manifest, ScenarioCount, TableManifest
+from synthgen.profiling.models import TableProfile
 from synthgen.spec.models import OverlaySet
 
 from ...engine.test_runner import BIG
@@ -149,7 +151,13 @@ def test_reporter_fills_numbers_from_code() -> None:
     )
 
 
-def test_row_targets_follow_flags_then_volume_hint() -> None:
+NO_SHAPES = {
+    name: cast("TableProfile", SimpleNamespace(relationships=[]))
+    for name in ("customers", "orders")
+}
+
+
+def test_row_targets_follow_flags_then_child_targets_then_volume_hint() -> None:
     rel = Relationship(
         child_table="orders",
         child_column="customer_id",
@@ -174,7 +182,7 @@ def test_row_targets_follow_flags_then_volume_hint() -> None:
             row_targets=(RowTarget(table="orders", rows=7),),
         ),
     )
-    assert row_targets(state, table_set) == {"orders": 7}
+    assert row_targets(state, table_set, NO_SHAPES) == {"orders": 7, "customers": 7}
     intent = TestIntent.model_validate(
         {
             "domain": "d",
@@ -190,7 +198,9 @@ def test_row_targets_follow_flags_then_volume_hint() -> None:
         }
     )
     state["intent"] = intent
-    assert row_targets(state, table_set) == {"orders": 7, "customers": 5_000}
+    assert row_targets(state, table_set, NO_SHAPES) == {"orders": 7, "customers": 7}
+    state["request"] = state["request"].model_copy(update={"row_targets": ()})
+    assert row_targets(state, table_set, NO_SHAPES) == {"customers": 5_000}
 
 
 @pytest.mark.parametrize("role", ROLES)

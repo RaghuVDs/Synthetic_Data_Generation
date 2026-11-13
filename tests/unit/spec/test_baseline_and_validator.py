@@ -18,6 +18,7 @@ from synthgen.profiling.profiler import profile_table
 from synthgen.spec.baseline import BaselineInputs, compile_baseline
 from synthgen.spec.merge import merge_overlays
 from synthgen.spec.models import GenerationSpec, ScenarioSpec
+from synthgen.spec.row_targets import implied_root_rows
 from synthgen.spec.validator import validate_spec
 
 PROFILE_NOW = datetime(2026, 1, 1, tzinfo=UTC)
@@ -384,3 +385,29 @@ def test_baseline_turns_profiled_rules_into_constraints_and_derived_columns(
     orders = [(c.lower, c.upper) for c in table.constraints if c.kind == "order"]
     assert ("opened", "closed") in orders
     assert validate_spec(spec, generation_settings) == []
+
+
+def test_child_targets_size_the_root_by_the_profiled_children_per_parent(
+    shop_db: Path, profiling_settings: ProfilingSettings
+) -> None:
+    connector = SqliteConnector(shop_db)
+    provider = YamlMetadataProvider(SourceDoc(source="shop"), connector)
+    rels = provider.relationships()
+    table_set = build_table_set(["orders"], [t.name for t in provider.tables()], rels)
+    profiles = {
+        t: profile_table(
+            "shop",
+            connector,
+            provider.table(t),
+            rels,
+            parents={m.name: m for m in provider.tables()},
+            settings=profiling_settings,
+            seed=1,
+            now=PROFILE_NOW,
+        )
+        for t in table_set.order
+    }
+    connector.close()
+    assert implied_root_rows(table_set, profiles, {"orders": 3_000}) == {"customers": 2_000}
+    assert implied_root_rows(table_set, profiles, {"orders": 3_000, "customers": 10}) == {}
+    assert implied_root_rows(table_set, profiles, {"customers": 10}) == {}

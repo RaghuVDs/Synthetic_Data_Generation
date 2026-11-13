@@ -2,18 +2,25 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from synthgen.agents.nodes.common import load_profile
 from synthgen.agents.nodes.deps import NodeDeps, StateUpdate
 from synthgen.agents.state import JobState
 from synthgen.domain.errors import SynthgenError
 from synthgen.domain.job import ArtifactKind
 from synthgen.domain.metadata import TableSet
+from synthgen.profiling.models import TableProfile
 from synthgen.spec.baseline import BaselineInputs, compile_baseline
+from synthgen.spec.row_targets import implied_root_rows
 
 
-def row_targets(state: JobState, table_set: TableSet) -> dict[str, int]:
-    """`--rows` targets, then the intent's volume hint for root tables (PLAN Q3)."""
+def row_targets(
+    state: JobState, table_set: TableSet, profiles: Mapping[str, TableProfile]
+) -> dict[str, int]:
+    """`--rows` targets; roots sized by child targets; then the intent's volume hint (Q3)."""
     targets = {t.table: t.rows for t in state["request"].row_targets}
+    targets |= implied_root_rows(table_set, profiles, targets)
     intent = state["intent"]
     hint = intent.volume_hint if intent else None
     children = {
@@ -35,13 +42,14 @@ def run(state: JobState, deps: NodeDeps) -> StateUpdate:
         raise SynthgenError("baseline compiler ran before the table set was built")
     with deps.open_source(state["request"].source) as source:
         tables = {name: source.metadata.table(name) for name in table_set.order}
+    profiles = {name: load_profile(state, deps, name) for name in table_set.order}
     inputs = BaselineInputs(
         table_set=table_set,
         tables=tables,
-        profiles={name: load_profile(state, deps, name) for name in table_set.order},
+        profiles=profiles,
         profile_versions=state["profile_refs"],
         semantic_map=state["semantic_map"],
-        row_targets=row_targets(state, table_set),
+        row_targets=row_targets(state, table_set, profiles),
         seed=state["request"].seed,
     )
     spec = compile_baseline(inputs, deps.settings.generation)
