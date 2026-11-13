@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Synthetic Data Agent</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #5d6677; --line: #dde1e8;
+    --accent: #2f5bd3; --accent-text: #ffffff; --ok: #1f7a4d; --warn: #9a6200; --bad: #b42318;
+    --chip: #eef1f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151b; --panel: #1b1f27; --text: #e6e9ef; --muted: #9aa3b2; --line: #2c3240;
+      --accent: #6c8cff; --accent-text: #0d1020; --ok: #4cc38a; --warn: #f0b44c; --bad: #ff6b5f;
+      --chip: #252b36;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 20px 24px 8px; max-width: 1100px; margin: 0 auto; }
+  header h1 { margin: 0; font-size: 22px; }
+  header p { margin: 4px 0 0; color: var(--muted); }
+  main { max-width: 1100px; margin: 0 auto; padding: 8px 24px 48px; display: grid; gap: 16px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+            padding: 18px 20px; }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  .muted { color: var(--muted); }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .sources button { border: 1px solid var(--line); background: var(--chip); color: var(--text);
+                    border-radius: 8px; padding: 8px 14px; cursor: pointer; font: inherit; }
+  .sources button.on { border-color: var(--accent); outline: 2px solid var(--accent); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line);
+           vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); font-size: 13px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  input[type=number], input[type=text], textarea {
+    background: var(--bg); color: var(--text); border: 1px solid var(--line);
+    border-radius: 6px; padding: 6px 8px; font: inherit; }
+  input[type=number] { width: 120px; }
+  textarea { width: 100%; min-height: 70px; resize: vertical; }
+  button.primary, button.secondary { border-radius: 8px; padding: 9px 18px; font: inherit;
+                                     cursor: pointer; border: 1px solid var(--accent); }
+  button.primary { background: var(--accent); color: var(--accent-text); font-weight: 600; }
+  button.secondary { background: transparent; color: var(--accent); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; background: var(--chip);
+          font-size: 13px; font-weight: 600; }
+  .pill.ok { color: var(--ok); } .pill.warn { color: var(--warn); } .pill.bad { color: var(--bad); }
+  .error { color: var(--bad); white-space: pre-wrap; }
+  .small { font-size: 13px; }
+  .scroll { overflow-x: auto; }
+  code { background: var(--chip); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  ul { margin: 6px 0; padding-left: 20px; }
+  @media (max-width: 640px) { header, main { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Synthetic Data Agent</h1>
+  <p>Pick a source and its tables, describe what you want to test, then generate.</p>
+</header>
+<main>
+  <section>
+    <h2>1. Source</h2>
+    <div id="sources" class="row sources"><span class="muted">Loading sources…</span></div>
+    <p id="source-note" class="muted small"></p>
+  </section>
+
+  <section id="tables-panel" hidden>
+    <h2>2. Tables</h2>
+    <p class="muted small">Tick the tables to generate. Rows are optional; a target on a child
+      table also sizes its parents.</p>
+    <div class="scroll"><table>
+      <thead><tr><th></th><th>table</th><th class="num">source rows</th><th class="num">columns</th>
+        <th>description</th><th class="num">rows to generate</th></tr></thead>
+      <tbody id="tables"></tbody>
+    </table></div>
+    <p id="relationships" class="muted small"></p>
+  </section>
+
+  <section id="request-panel" hidden>
+    <h2>3. What to test</h2>
+    <textarea id="request" placeholder="e.g. Card fraud data for our fraud model: card-testing bursts and large night-time purchases, plus legitimate large daytime purchases"></textarea>
+    <div class="row" style="margin-top:10px">
+      <label>seed <input type="number" id="seed" min="0" value="0"></label>
+      <label><input type="checkbox" id="include-invalid"> include invalid rows</label>
+      <label><input type="checkbox" id="auto-approve"> approve the plan automatically</label>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="primary" id="generate">Generate</button>
+      <span id="start-error" class="error"></span>
+    </div>
+  </section>
+
+  <section id="job-panel" hidden>
+    <h2>Job <code id="job-id"></code> <span id="job-status" class="pill"></span></h2>
+    <p id="job-busy" class="muted small"></p>
+    <p id="job-error" class="error"></p>
+    <div id="pending"></div>
+    <div id="report"></div>
+  </section>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g,
+  (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const num = (n) => Number(n).toLocaleString();
+const pct = (x) => (x * 100).toFixed(1) + "%";
+let sources = [], current = null, jobId = null, timer = null;
+
+async function api(path, body) {
+  const res = await fetch(path, body === undefined ? {} :
+    {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+async function loadSources() {
+  try {
+    sources = (await api("/api/sources")).sources;
+  } catch (e) { $("sources").innerHTML = `<span class="error">${esc(e.message)}</span>`; return; }
+  if (!sources.length) {
+    $("sources").innerHTML = '<span class="muted">No sources found. Run <code>python main.py seed</code>.</span>';
+    return;
+  }
+  $("sources").innerHTML = sources.map((s, i) =>
+    `<button data-i="${i}" ${s.error ? "disabled" : ""}>${esc(s.name)}</button>`).join("");
+  $("sources").querySelectorAll("button").forEach((b) =>
+    b.addEventListener("click", () => pickSource(Number(b.dataset.i))));
+  const broken = sources.filter((s) => s.error).map((s) => s.error);
+  $("source-note").textContent = broken.join(" ");
+}
+
+function pickSource(i) {
+  current = sources[i];
+  $("sources").querySelectorAll("button").forEach((b) =>
+    b.classList.toggle("on", Number(b.dataset.i) === i));
+  $("source-note").textContent = current.description || "";
+  $("tables").innerHTML = current.tables.map((t) => `
+    <tr><td><input type="checkbox" class="pick" value="${esc(t.name)}"></td>
+      <td><strong>${esc(t.name)}</strong></td><td class="num">${num(t.rows)}</td>
+      <td class="num">${t.columns}</td><td class="muted">${esc(t.description)}</td>
+      <td class="num"><input type="number" min="1" class="rows" data-table="${esc(t.name)}" placeholder="auto"></td></tr>`
+  ).join("");
+  $("relationships").textContent = current.relationships.length ?
+    "Relationships: " + current.relationships.join("; ") : "";
+  $("tables-panel").hidden = false;
+  $("request-panel").hidden = false;
+}
+
+async function generate() {
+  $("start-error").textContent = "";
+  const tables = [...document.querySelectorAll(".pick:checked")].map((c) => c.value);
+  const rows = {};
+  document.querySelectorAll(".rows").forEach((r) => {
+    if (r.value && tables.includes(r.dataset.table)) rows[r.dataset.table] = Number(r.value);
+  });
+  if (!tables.length) { $("start-error").textContent = "Tick at least one table."; return; }
+  if (!$("request").value.trim()) { $("start-error").textContent = "Describe what to test."; return; }
+  $("generate").disabled = true;
+  try {
+    const job = await api("/api/jobs", {
+      source: current.name, tables, rows, request: $("request").value,
+      seed: Number($("seed").value) || 0, include_invalid: $("include-invalid").checked,
+      auto_approve: $("auto-approve").checked});
+    jobId = job.job_id;
+    $("job-panel").hidden = false;
+    $("job-id").textContent = jobId;
+    $("pending").innerHTML = ""; $("report").innerHTML = "";
+    poll();
+  } catch (e) { $("start-error").textContent = e.message; }
+  finally { $("generate").disabled = false; }
+}
+
+async function poll() {
+  clearTimeout(timer);
+  let job;
+  try { job = await api(`/api/jobs/${jobId}`); }
+  catch (e) { $("job-error").textContent = e.message; timer = setTimeout(poll, 3000); return; }
+  showStatus(job);
+  if (job.busy || (!job.terminal && !job.pending)) { timer = setTimeout(poll, 1500); return; }
+  if (job.pending && job.pending.kind === "clarification") showQuestions(job.pending);
+  else if (job.pending && job.pending.kind === "approval") showPlan(job.pending);
+  else $("pending").innerHTML = "";
+  if (job.report) showReport(job.report);
+}
+
+function showStatus(job) {
+  const s = $("job-status");
+  s.textContent = job.status.replace(/_/g, " ");
+  s.className = "pill " + (job.status === "completed" ? "ok" :
+    job.terminal ? "bad" : job.status.startsWith("awaiting") ? "warn" : "");
+  $("job-busy").textContent = job.busy ? "Working… this page updates by itself." : "";
+  $("job-error").textContent = job.error || "";
+}
+
+function showQuestions(p) {
+  $("pending").innerHTML = `<h2>The agent has a question</h2>` + p.questions.map((q) =>
+    `<p><strong>${esc(q.question)}</strong>` +
+    (q.options.length ? `<br><span class="muted small">Options: ${q.options.map(esc).join(", ")}</span>` : "") +
+    `</p>`).join("") +
+    `<textarea id="answer" placeholder="Your answer"></textarea>
+     <div class="row" style="margin-top:10px"><button class="primary" id="send-answer">Send answer</button></div>`;
+  $("send-answer").addEventListener("click", async () => {
+    try { await api(`/api/jobs/${jobId}/answer`, {answer: $("answer").value}); poll(); }
+    catch (e) { $("job-error").textContent = e.message; }
+  });
+}
+
+function showPlan(p) {
+  const rows = p.scenarios.map((s) => `
+    <tr><td><input type="checkbox" class="keep" value="${esc(s.name)}" checked></td>
+      <td><strong>${esc(s.name)}</strong><br><span class="muted small">${esc(s.description)}</span></td>
+      <td>${esc(s.category.replace(/_/g, " "))}</td><td class="num">${pct(s.share)}</td>
+      <td>${esc(s.feasibility || "-")}${s.feasibility_note ? `<br><span class="muted small">${esc(s.feasibility_note)}</span>` : ""}</td>
+      <td class="small">${s.signature.map(esc).join("<br>")}</td><td class="small">${esc(s.source)}</td></tr>`).join("");
+  $("pending").innerHTML = `<h2>Plan v${p.plan_version}: approve or reject</h2>
+    <div class="scroll"><table><thead><tr><th>keep</th><th>scenario</th><th>category</th>
+      <th class="num">share</th><th>feasibility</th><th>signature</th><th>source</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <p class="muted small">Typical rows: ${pct(p.typical_share)}</p>
+    ${p.assumptions.length ? `<p class="small">Assumptions:</p><ul class="small">${p.assumptions.map((a) => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}
+    ${p.explanation ? `<p class="small">Repair asks for a plan change: ${esc(p.explanation)}</p>` : ""}
+    ${p.errors.map((e) => `<p class="error small">Previous edit rejected: ${esc(e)}</p>`).join("")}
+    <textarea id="feedback" placeholder="Feedback for the planner (needed to reject)"></textarea>
+    <div class="row" style="margin-top:10px">
+      <button class="primary" id="approve">Approve and generate</button>
+      <button class="secondary" id="reject">Reject with feedback</button></div>`;
+  const decide = async (decision) => {
+    const removed = [...document.querySelectorAll(".keep:not(:checked)")].map((c) => c.value);
+    try {
+      await api(`/api/jobs/${jobId}/decision`, {decision, feedback: $("feedback").value,
+        removed_scenarios: decision === "approved" ? removed : []});
+      $("pending").innerHTML = ""; poll();
+    } catch (e) { $("job-error").textContent = e.message; }
+  };
+  $("approve").addEventListener("click", () => decide("approved"));
+  $("reject").addEventListener("click", () => decide("rejected"));
+}
+
+function showReport(r) {
+  const tables = r.tables.map((t) => `
+    <tr><td><strong>${esc(t.name)}</strong></td><td class="num">${num(t.rows)}</td>
+      <td class="small">${Object.entries(t.scenarios).map(([k, v]) => `${esc(k)} ${num(v)}`).join(", ")}</td>
+      <td><button class="secondary preview" data-table="${esc(t.name)}">preview</button></td></tr>`).join("");
+  const failures = r.failures.length ? `<p class="error">${r.failures.length} of ${r.checks_run} checks failed:</p>
+    <ul class="small">${r.failures.map((f) => `<li>${esc(f.family)} ${esc(f.check)} on ${esc(f.where)}: ${esc(f.value)} (limit ${esc(f.threshold)})${f.scenario ? ", scenario " + esc(f.scenario) : ""}</li>`).join("")}</ul>`
+    : (r.checks_run ? `<p class="small">All ${r.checks_run} checks passed.</p>` : "");
+  $("report").innerHTML = `
+    ${r.summary ? `<h2>Summary</h2><p>${esc(r.summary)}</p>` : ""}
+    ${r.caveats.map((c) => `<p class="muted small">Caveat: ${esc(c)}</p>`).join("")}
+    ${failures}
+    ${r.tables.length ? `<div class="scroll"><table><thead><tr><th>table</th><th class="num">rows</th>
+      <th>scenarios</th><th></th></tr></thead><tbody>${tables}</tbody></table></div>
+      <p class="muted small">Files are in <code>output/jobs/${esc(jobId)}/</code>.</p>` : ""}
+    <div id="preview" class="scroll"></div>`;
+  document.querySelectorAll(".preview").forEach((b) =>
+    b.addEventListener("click", () => preview(b.dataset.table)));
+}
+
+async function preview(table) {
+  try {
+    const p = await api(`/api/jobs/${jobId}/preview?table=${encodeURIComponent(table)}`);
+    $("preview").innerHTML = `<h2>${esc(table)}: first ${p.rows.length} rows</h2><table><thead><tr>` +
+      p.columns.map((c) => `<th>${esc(c)}</th>`).join("") + "</tr></thead><tbody>" +
+      p.rows.map((r) => "<tr>" + r.map((v) => `<td class="small">${esc(v)}</td>`).join("") + "</tr>").join("") +
+      "</tbody></table>";
+  } catch (e) { $("job-error").textContent = e.message; }
+}
+
+$("generate").addEventListener("click", generate);
+loadSources();
+</script>
+</body>
+</html>

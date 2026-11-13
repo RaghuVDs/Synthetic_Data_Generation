@@ -547,6 +547,25 @@ confirmed or corrected it moves to section 3.
   folder completes on stub answers; the plan's sensibility rests on the live M3
   run. Interrupting each of the 15 nodes once and resuming gives the same
   Parquet bytes as an uninterrupted run (the repair path, so all nodes run).
+- 2026-11-12 (user, after M7): Q3 revised. A row target on a child table also
+  sizes the root of its driving chain: the target is divided by the profiled
+  mean children per parent at each step up (`spec/row_targets.py`), so
+  1,000,000 order lines give about 300,000 orders and their customers instead of
+  250 lines on each of 4,000 orders. Precedence for a root: its own `--rows`,
+  then the largest size a child target implies, then the intent's volume hint,
+  then `default_root_rows`. The child keeps its target, which then only
+  fine-tunes the count. User asked to build the remaining work at once and
+  test later; the full `make check` and commit are deferred to that pass.
+- 2026-11-12 (user, after M7): A basic local web page, overriding "web UI" in
+  the out-of-scope list (CLAUDE.md updated). `python main.py ui` serves one
+  page from `src/synthgen/web/` with the standard library's HTTP server, on
+  `ui.host` (127.0.0.1) and `ui.port`; no new dependencies and no login, so it
+  stays local. The page picks a source and tables (optional rows per table),
+  takes the request text and options, and runs the full agent job: it shows
+  clarifying questions, the plan to approve (with scenarios to drop) or reject,
+  then the summary, rows per table and scenario, failed checks and a preview.
+  Job steps run in background threads, each with its own application. `web`
+  ranks 9, between `app` (8) and `cli` (now 10).
 
 ## 4. Milestones
 

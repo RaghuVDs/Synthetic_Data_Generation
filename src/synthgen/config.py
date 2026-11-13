@@ -184,6 +184,15 @@ class EvaluationSettings(_Group):
     report_dir: str
 
 
+class UiSettings(_Group):
+    """The local web page: where it listens and how much it accepts or shows."""
+
+    host: str
+    port: int = Field(ge=1, le=65535)
+    max_body_bytes: int = Field(ge=1)
+    preview_rows: int = Field(ge=1)
+
+
 class PathSettings(_Group):
     """Locations of source data, state databases, metadata and output."""
 
@@ -215,6 +224,7 @@ class Settings(_Group):
     validation: ValidationSettings
     seed: SeedSettings
     evaluation: EvaluationSettings
+    ui: UiSettings
     paths: PathSettings
 
 

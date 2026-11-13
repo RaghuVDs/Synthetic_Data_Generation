@@ -29,7 +29,8 @@ RANKS: dict[str, int] = {
     "sources": 7,
     "evaluation": 7,
     "app": 8,
-    "cli": 9,
+    "web": 9,
+    "cli": 10,
 }
 LLM_LIBS = {"langgraph", "langchain", "langchain_core", "openai", "groq"}
 FORBIDDEN_CALLS = {"eval", "exec", "compile", "__import__"}

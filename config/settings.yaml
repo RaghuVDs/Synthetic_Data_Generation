@@ -126,6 +126,12 @@ evaluation:
   max_pauses: 10                      # clarifications and approvals answered per job
   report_dir: eval                    # inside output_dir; one JSON report per run
 
+ui:
+  host: 127.0.0.1                     # local only; the page has no login
+  port: 8000
+  max_body_bytes: 65536               # largest request the page may post
+  preview_rows: 20                    # rows shown per table after a job
+
 paths:
   data_dir: data
   output_dir: output

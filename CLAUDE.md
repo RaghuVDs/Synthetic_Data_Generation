@@ -30,7 +30,8 @@ In scope:
 
 Out of scope (do not build): REST API, web UI, Docker, authentication, object
 storage, any database other than SQLite, masking of real data, learned
-generative models.
+generative models. Exception (user decision 2026-11-12): one local page served
+by `python main.py ui` (`src/synthgen/web/`, standard library, localhost only).
 
 ## Hard rules
 
@@ -80,6 +81,7 @@ PyArrow API. Do not rely on memory for library signatures.
 │   ├── config.py               # typed settings
 │   ├── domain/                 # pure Pydantic models and errors; no I/O
 │   ├── cli/                    # Typer commands, Rich rendering, prompts
+│   ├── web/                    # the local page behind `main.py ui` (user decision)
 │   ├── agents/                 # ONLY package that imports LangGraph or an LLM
 │   │   ├── graph.py  state.py  routing.py
 │   │   ├── llm/                # client protocol, openai_compatible, stub
@@ -142,6 +144,7 @@ PyArrow API. Do not rely on memory for library signatures.
 - `python main.py seed` builds the fake source databases
 - `python main.py run --source <name> --tables <a,b> --request "<text>"`
 - `python main.py resume <job_id>` continues a paused or interrupted job
+- `python main.py ui` serves the local page to pick tables and generate
 - `python main.py --help` lists every command
 
 ## Git workflow

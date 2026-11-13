@@ -2,7 +2,7 @@
 
 import typer
 
-from synthgen.cli import commands, evaluation, jobs
+from synthgen.cli import commands, evaluation, jobs, ui
 
 app = typer.Typer(
     name="synthgen",
@@ -19,6 +19,7 @@ app.command("status")(jobs.status)
 app.command("report")(jobs.report)
 app.command("preview")(jobs.preview)
 app.command("eval")(evaluation.evaluate)
+app.command("ui")(ui.ui)
 
 
 @app.callback()

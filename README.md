@@ -37,12 +37,21 @@ lists its options.
 | `resume JOB` | Continue a paused or interrupted job |
 | `status JOB`, `report JOB`, `preview JOB --table t` | Inspect a job |
 | `eval` | Run the golden set and print metrics: `--volumes 100,100000`, `--only name`, `--source orders` |
+| `ui` | Serve a local web page (http://127.0.0.1:8000) to pick tables, describe the test and generate: `--port N` |
 
 A job asks clarifying questions when the request is ambiguous, then shows its
 plan (scenario, category, share, feasibility, signature, source) for you to
 approve, edit or reject. Output goes to `output/jobs/<job_id>/`: Parquet per
 table under `data/`, `manifest.json`, `spec.json` and `validation_report.json`.
 Every row carries a `_scenario` label; deliberately broken rows also carry `_defect`.
+
+## Web page
+
+`uv run python main.py ui` opens a page on your machine only. Pick a source,
+tick tables (rows per table are optional), describe what to test and press
+Generate. The page shows the agent's questions and its plan (untick scenarios
+to drop, or reject with feedback), then the summary, rows per table, any failed
+checks and a preview of each table. It runs the same job as `run`.
 
 ## Demo
 
